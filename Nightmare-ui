@@ -1,0 +1,328 @@
+--[[
+    NIGHTMARE HUB UI LIBRARY 🎮
+    Rounded rectangle, draggable, arcade style UI library
+    Loaded from GitHub. Title is hardcoded.
+]]
+
+-- ==================== SERVICES ====================
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+local SoundService = game:GetService("SoundService")
+
+-- ==================== VARIABLES ====================
+local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+
+-- ==================== UI LIBRARY ====================
+local NightmareUILib = {}
+NightmareUILib.__index = NightmareUILib
+
+-- Create a new UI instance
+function NightmareUILib.new()
+    local self = setmetatable({}, NightmareUILib)
+    
+    -- UI Properties (Title is now hardcoded)
+    self.title = "NIGHTMARE HUB"
+    self.toggles = {}
+    self.switches = {}
+    
+    -- Create the UI
+    self:_createUI()
+    
+    return self
+end
+
+-- Create the main UI elements
+function NightmareUILib:_createUI()
+    -- Clean up any existing UI with the same name
+    for _, gui in pairs(game.CoreGui:GetChildren()) do
+        if gui.Name == "NightmareHubUI" then
+            gui:Destroy()
+        end
+    end
+    
+    -- Create ScreenGui
+    self.screenGui = Instance.new("ScreenGui")
+    self.screenGui.Name = "NightmareHubUI"
+    self.screenGui.ResetOnSpawn = false
+    self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.screenGui.Parent = game.CoreGui
+    
+    -- Main Frame (Rounded Rectangle - Vertical Block)
+    self.mainFrame = Instance.new("Frame")
+    self.mainFrame.Size = UDim2.new(0, 200, 0, 320)
+    self.mainFrame.Position = UDim2.new(0.5, -100, 0.5, -160)
+    self.mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    self.mainFrame.BackgroundTransparency = 0.1
+    self.mainFrame.BorderSizePixel = 0
+    self.mainFrame.Active = true
+    self.mainFrame.Draggable = true
+    self.mainFrame.Parent = self.screenGui
+    
+    -- Rounded corners
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 15)
+    mainCorner.Parent = self.mainFrame
+    
+    -- Border stroke
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(255, 50, 50)
+    mainStroke.Thickness = 1
+    mainStroke.Parent = self.mainFrame
+    
+    -- Title Label (Dark Red, Arcade Font)
+    self.titleLabel = Instance.new("TextLabel")
+    self.titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    self.titleLabel.Position = UDim2.new(0, 0, 0, 3)
+    self.titleLabel.BackgroundTransparency = 1
+    self.titleLabel.Text = self.title -- Uses the hardcoded title
+    self.titleLabel.TextColor3 = Color3.fromRGB(139, 0, 0)
+    self.titleLabel.TextSize = 18
+    self.titleLabel.Font = Enum.Font.Arcade
+    self.titleLabel.Parent = self.mainFrame
+    
+    -- Container for toggles
+    self.toggleContainer = Instance.new("ScrollingFrame")
+    self.toggleContainer.Size = UDim2.new(1, -20, 1, -50)
+    self.toggleContainer.Position = UDim2.new(0, 10, 0, 50)
+    self.toggleContainer.BackgroundTransparency = 1
+    self.toggleContainer.BorderSizePixel = 0
+    self.toggleContainer.ScrollBarThickness = 5
+    self.toggleContainer.Parent = self.mainFrame
+    
+    -- Layout for toggles
+    self.toggleLayout = Instance.new("UIListLayout")
+    self.toggleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.toggleLayout.Padding = UDim.new(0, 5)
+    self.toggleLayout.Parent = self.toggleContainer
+    
+    -- Track toggle count for positioning
+    self.toggleCount = 0
+end
+
+-- Add a simple toggle button to the UI
+function NightmareUILib:addToggle(options)
+    self.toggleCount = self.toggleCount + 1
+    
+    -- Default options
+    local toggleOptions = {
+        text = options.text or "Toggle",
+        onClick = options.onClick or function() end,
+        initialState = options.initialState or false,
+        playSound = options.playSound ~= false -- Default to true
+    }
+    
+    -- Create toggle frame
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(0, 160, 0, 32)
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.LayoutOrder = self.toggleCount
+    toggleFrame.Parent = self.toggleContainer
+    
+    -- Create toggle button
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(1, 0, 1, 0)
+    toggleButton.BackgroundColor3 = toggleOptions.initialState and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(80, 0, 0)
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Text = toggleOptions.text
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextSize = 16
+    toggleButton.Font = Enum.Font.Arcade
+    toggleButton.Parent = toggleFrame
+    
+    -- Toggle button corner
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 10)
+    toggleCorner.Parent = toggleButton
+    
+    -- Toggle button stroke
+    local toggleStroke = Instance.new("UIStroke")
+    toggleStroke.Color = Color3.fromRGB(255, 50, 50)
+    toggleStroke.Thickness = 1
+    toggleStroke.Parent = toggleButton
+    
+    -- Create sound if needed
+    local toggleSound
+    if toggleOptions.playSound then
+        toggleSound = Instance.new("Sound")
+        toggleSound.SoundId = "rbxassetid://144686873"
+        toggleSound.Volume = 1
+        toggleSound.Looped = false
+        toggleSound.Parent = SoundService
+    end
+    
+    -- Track toggle state
+    local toggleState = {
+        isOn = toggleOptions.initialState,
+        button = toggleButton,
+        sound = toggleSound
+    }
+    
+    -- Toggle button click function
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleState.isOn = not toggleState.isOn
+        toggleButton.BackgroundColor3 = toggleState.isOn and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(80, 0, 0)
+        
+        -- Play sound if available
+        if toggleState.sound then
+            if toggleState.sound.IsPlaying then
+                toggleState.sound:Stop()
+            end
+            toggleState.sound:Play()
+        end
+        
+        -- Call the onClick function with the current state
+        toggleOptions.onClick(toggleState.isOn)
+    end)
+    
+    -- Store toggle reference
+    self.toggles[toggleOptions.text] = toggleState
+    
+    -- Update container size
+    self.toggleContainer.CanvasSize = UDim2.new(0, 0, 0, self.toggleCount * 37)
+    
+    return toggleState
+end
+
+-- Add a toggle with a switch button to the UI
+function NightmareUILib:addToggleWithSwitch(options)
+    self.toggleCount = self.toggleCount + 1
+    
+    -- Default options
+    local toggleOptions = {
+        text = options.text or "Toggle",
+        onClick = options.onClick or function() end,
+        onSwitch = options.onSwitch or function() end,
+        initialState = options.initialState or false,
+        initialSwitchState = options.initialSwitchState or false,
+        switchTextOn = options.switchTextOn or "Mode 1",
+        switchTextOff = options.switchTextOff or "Mode 2",
+        playSound = options.playSound ~= false -- Default to true
+    }
+    
+    -- Create toggle frame
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(0, 160, 0, 32)
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.LayoutOrder = self.toggleCount
+    toggleFrame.Parent = self.toggleContainer
+    
+    -- Create toggle button (smaller width to make space for switch)
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 125, 0, 32)
+    toggleButton.Position = UDim2.new(0, 0, 0, 0)
+    toggleButton.BackgroundColor3 = toggleOptions.initialState and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(80, 0, 0)
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Text = toggleOptions.initialSwitchState and toggleOptions.switchTextOn or toggleOptions.switchTextOff
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextSize = 15
+    toggleButton.Font = Enum.Font.Arcade
+    toggleButton.Parent = toggleFrame
+    
+    -- Toggle button corner
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 10)
+    toggleCorner.Parent = toggleButton
+    
+    -- Toggle button stroke
+    local toggleStroke = Instance.new("UIStroke")
+    toggleStroke.Color = Color3.fromRGB(255, 50, 50)
+    toggleStroke.Thickness = 1
+    toggleStroke.Parent = toggleButton
+    
+    -- Switch Button (Toggle between modes)
+    local switchButton = Instance.new("TextButton")
+    switchButton.Size = UDim2.new(0, 30, 0, 32)
+    switchButton.Position = UDim2.new(0, 130, 0, 0)
+    switchButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    switchButton.BorderSizePixel = 0
+    switchButton.Text = "⇄"
+    switchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    switchButton.TextSize = 18
+    switchButton.Font = Enum.Font.GothamBold
+    switchButton.Parent = toggleFrame
+    
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(0, 10)
+    switchCorner.Parent = switchButton
+    
+    local switchStroke = Instance.new("UIStroke")
+    switchStroke.Color = Color3.fromRGB(255, 50, 50)
+    switchStroke.Thickness = 1
+    switchStroke.Parent = switchButton
+    
+    -- Create sound if needed
+    local toggleSound
+    if toggleOptions.playSound then
+        toggleSound = Instance.new("Sound")
+        toggleSound.SoundId = "rbxassetid://144686873"
+        toggleSound.Volume = 1
+        toggleSound.Looped = false
+        toggleSound.Parent = SoundService
+    end
+    
+    -- Track toggle state
+    local toggleState = {
+        isOn = toggleOptions.initialState,
+        button = toggleButton,
+        switch = switchButton,
+        switchState = toggleOptions.initialSwitchState,
+        sound = toggleSound
+    }
+    
+    -- Switch button click function
+    switchButton.MouseButton1Click:Connect(function()
+        toggleState.switchState = not toggleState.switchState
+        toggleButton.Text = toggleState.switchState and toggleOptions.switchTextOn or toggleOptions.switchTextOff
+        
+        -- Call the onSwitch function with the current switch state
+        toggleOptions.onSwitch(toggleState.switchState)
+    end)
+    
+    -- Toggle button click function
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleState.isOn = not toggleState.isOn
+        toggleButton.BackgroundColor3 = toggleState.isOn and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(80, 0, 0)
+        
+        -- Play sound if available
+        if toggleState.sound then
+            if toggleState.sound.IsPlaying then
+                toggleState.sound:Stop()
+            end
+            toggleState.sound:Play()
+        end
+        
+        -- Call the onClick function with the current states
+        toggleOptions.onClick(toggleState.isOn, toggleState.switchState)
+    end)
+    
+    -- Store toggle reference
+    self.toggles[toggleOptions.text] = toggleState
+    
+    -- Update container size
+    self.toggleContainer.CanvasSize = UDim2.new(0, 0, 0, self.toggleCount * 37)
+    
+    return toggleState
+end
+
+-- Show a notification
+function NightmareUILib:showNotification(title, text, duration)
+    duration = duration or 5
+    StarterGui:SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = duration;
+    })
+end
+
+-- Clean up the UI
+function NightmareUILib:destroy()
+    if self.screenGui then
+        self.screenGui:Destroy()
+        self.screenGui = nil
+    end
+end
+
+return NightmareUILib

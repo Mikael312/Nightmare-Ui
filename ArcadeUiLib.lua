@@ -63,7 +63,7 @@ end
 
 -- ==================== NOTIFICATION SYSTEM ====================
 local NotificationGui = nil
-local DEFAULT_NOTIFICATION_SOUND_ID = 9064717833 -- ID untuk bunyi 'ding' default
+local DEFAULT_NOTIFICATION_SOUND_ID = 8486683243 -- ID untuk bunyi 'ding' default
 
 -- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
 local function createNotificationGui()

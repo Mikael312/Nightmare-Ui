@@ -287,7 +287,7 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    ArcadeUILib:Notify("✅ Unlocked Floor " .. number, false)
+    ArcadeUILib:Notify("Unlocked Floor " .. number, false)
 end
 
 local function createUnlockNearestUI()
@@ -639,10 +639,10 @@ function ArcadeUILib:CreateUI()
     createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
-            self:Notify("Hide Skin (Anti-Lag) Enabled!")
+            self:Notify("Hide Skin Enabled!")
         else
             disableAntiLag()
-            self:Notify("Hide Skin (Anti-Lag) Disabled!")
+            self:Notify("Hide Skin Disabled!")
         end
     end)
 
@@ -673,7 +673,7 @@ function ArcadeUILib:Notify(text, soundId)
     if soundToPlay then
         local sound = Instance.new("Sound")
         sound.SoundId = "rbxassetid://" .. soundToPlay
-        sound.Volume = 0.5
+        sound.Volume = 0.4
         sound.Parent = SoundService
         sound:Play()
         

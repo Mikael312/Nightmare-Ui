@@ -1,5 +1,5 @@
 --[[
-    ARCADE UI LIBRARY (With Config System + Notification System + Utility System)
+    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
     Converted by AI Assistant
 ]]
 
@@ -88,13 +88,6 @@ local cleanedCharacters = {}
 
 -- Unlock Nearest Variables
 local unlockNearestUI = nil
-
--- ==================== UI VARIABLES ====================
-local ScreenGui
-local MainFrame
-local ToggleButton
-local ScrollFrame
-local ListLayout
 
 -- ==================== UTILITY FUNCTIONS ====================
 local function destroyAllEquippableItems(character)
@@ -384,6 +377,13 @@ local function destroyUnlockNearestUI()
 end
 
 
+-- ==================== UI VARIABLES ====================
+local ScreenGui
+local MainFrame
+local ToggleButton
+local ScrollFrame
+local ListLayout
+
 -- ==================== CREATE UI ====================
 function ArcadeUILib:CreateUI()
     -- Load config awal-awal
@@ -487,11 +487,12 @@ function ArcadeUILib:CreateUI()
     utilityStroke.Thickness = 1
     utilityStroke.Parent = UtilityFrame
 
+    -- Utility Title (TEKS DITUKAR)
     local utilityTitle = Instance.new("TextLabel")
     utilityTitle.Size = UDim2.new(1, 0, 0, 40)
     utilityTitle.Position = UDim2.new(0, 0, 0, 5)
     utilityTitle.BackgroundTransparency = 1
-    utilityTitle.Text = "Utility Settings"
+    utilityTitle.Text = "Utility" -- <-- DITUKAR DI SINI
     utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
     utilityTitle.TextSize = 15
     utilityTitle.Font = Enum.Font.Arcade
@@ -575,7 +576,7 @@ function ArcadeUILib:CreateUI()
     discordIcon.Parent = discordButton
 
     discordButton.MouseButton1Click:Connect(function()
-        setclipboard("https://discord.gg/WB2p6Zvh") -- Updated Link
+        setclipboard("https://discord.gg/WB2p6Zvh")
         discordButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
         task.wait(0.2)
         discordButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
@@ -584,6 +585,75 @@ function ArcadeUILib:CreateUI()
     -- Toggle button functionality
     ToggleButton.MouseButton1Click:Connect(function()
         MainFrame.Visible = not MainFrame.Visible
+    end)
+
+    -- ==================== CREATE UTILITY TOGGLES (DIINTEGRASIKAN) ====================
+    local function createIntegratedUtilityToggle(toggleName, configKey, callback)
+        local utilityToggle = Instance.new("TextButton")
+        utilityToggle.Name = "UtilityToggle_" .. toggleName
+        utilityToggle.Size = UDim2.new(1, -10, 0, 32)
+        utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+        utilityToggle.BorderSizePixel = 0
+        utilityToggle.Text = toggleName
+        utilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        utilityToggle.TextSize = 12
+        utilityToggle.Font = Enum.Font.Arcade
+        utilityToggle.Parent = UtilityScrollFrame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = utilityToggle
+        
+        local btnStroke = Instance.new("UIStroke")
+        btnStroke.Color = Color3.fromRGB(255, 50, 50)
+        btnStroke.Thickness = 1
+        btnStroke.Parent = utilityToggle
+        
+        -- Load initial state from config
+        local isToggled = self.Config[configKey] or false
+        if isToggled then
+            utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+        end
+
+        -- Call callback on initial load
+        if callback then callback(isToggled) end
+        
+        utilityToggle.MouseButton1Click:Connect(function()
+            isToggled = not isToggled
+            
+            if isToggled then
+                utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+            else
+                utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+            end
+            
+            -- Save state to config
+            ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
+            
+            -- Execute callback
+            if callback then callback(isToggled) end
+        end)
+    end
+
+    -- Create the two utility toggles here
+    createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
+        if state then
+            enableAntiLag()
+            self:Notify("Hide Skin (Anti-Lag) Enabled!")
+        else
+            disableAntiLag()
+            self:Notify("Hide Skin (Anti-Lag) Disabled!")
+        end
+    end)
+
+    createIntegratedUtilityToggle("Unlock Nearest", "Arcade_Utility_UnlockNearest", function(state)
+        if state then
+            createUnlockNearestUI()
+            self:Notify("Unlock Nearest UI Enabled!")
+        else
+            destroyUnlockNearestUI()
+            self:Notify("Unlock Nearest UI Disabled!")
+        end
     end)
 
     -- Create Notification Gui at the end
@@ -720,56 +790,6 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
     if text2 and callback2 then
         createSingleToggle(text2, callback2, UDim2.new(0, 115, 0, 0))
     end
-end
-
--- ==================== UTILITY TOGGLE CREATION FUNCTION ====================
-function ArcadeUILib:AddUtilityToggle(toggleName, callback)
-    if not UtilityScrollFrame then
-        warn("Utility UI has not been created. Call CreateUI first.")
-        return
-    end
-
-    local configKey = "Arcade_Utility_" .. toggleName
-    local utilityToggle = Instance.new("TextButton")
-    utilityToggle.Name = "UtilityToggle_" .. toggleName
-    utilityToggle.Size = UDim2.new(1, -10, 0, 32)
-    utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-    utilityToggle.BorderSizePixel = 0
-    utilityToggle.Text = toggleName
-    utilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    utilityToggle.TextSize = 12
-    utilityToggle.Font = Enum.Font.Arcade
-    utilityToggle.Parent = UtilityScrollFrame
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = utilityToggle
-    
-    local btnStroke = Instance.new("UIStroke")
-    btnStroke.Color = Color3.fromRGB(255, 50, 50)
-    btnStroke.Thickness = 1
-    btnStroke.Parent = utilityToggle
-    
-    local isToggled = self.Config[configKey] or false
-    if isToggled then
-        utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-    end
-
-    if callback then callback(isToggled) end
-    
-    utilityToggle.MouseButton1Click:Connect(function()
-        isToggled = not isToggled
-        
-        if isToggled then
-            utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-        else
-            utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-        end
-        
-        ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
-        
-        if callback then callback(isToggled) end
-    end)
 end
 
 return ArcadeUILib

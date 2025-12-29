@@ -72,7 +72,7 @@ local function createNotificationGui()
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    NotificationGui.Parent = game.CoreGui
 end
 
 -- ==================== UI VARIABLES ====================

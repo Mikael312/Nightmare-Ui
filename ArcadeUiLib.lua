@@ -1,6 +1,6 @@
 --[[
-    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
-    Converted by shadow
+    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility + Robust Cleanup)
+    Converted by AI Assistant
 ]]
 
 local ArcadeUILib = {}
@@ -63,7 +63,7 @@ end
 
 -- ==================== NOTIFICATION SYSTEM ====================
 local NotificationGui = nil
-local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
+local DEFAULT_NOTIFICATION_SOUND_ID = 3398670839 -- ID untuk bunyi 'ding' default
 
 -- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
 local function createNotificationGui()
@@ -287,7 +287,7 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    ArcadeUILib:Notify("Unlocked Floor " .. number, false)
+    ArcadeUILib:Notify("✅ Unlocked Floor " .. number, false)
 end
 
 local function createUnlockNearestUI()
@@ -389,9 +389,11 @@ function ArcadeUILib:CreateUI()
     -- Load config awal-awal
     self.Config = ConfigSystem:Load()
 
-    -- Cleanup
-    if game.CoreGui:FindFirstChild("ArcadeUI") then
-        game.CoreGui:FindFirstChild("ArcadeUI"):Destroy()
+    -- Cleanup (Lebih Selamat & Komprehensif)
+    for _, gui in pairs(game.CoreGui:GetChildren()) do
+        if gui.Name == "ArcadeUI" or gui.Name == "ArcadeNotificationGui" or gui.Name == "UnlockBaseUI" then
+            gui:Destroy()
+        end
     end
 
     -- ScreenGui
@@ -635,14 +637,14 @@ function ArcadeUILib:CreateUI()
         end)
     end
 
-    -- Create the two utility toggles here
+    -- Create::= two utility toggles here
     createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
-            self:Notify("Hide Skin Enabled!")
+            self:Notify("Hide Skin (Anti-Lag) Enabled!")
         else
             disableAntiLag()
-            self:Notify("Hide Skin Disabled!")
+            self:Notify("Hide Skin (Anti-Lag) Disabled!")
         end
     end)
 
@@ -664,12 +666,14 @@ end
 
 -- Fungsi utama untuk menunjukkan notifikasi
 function ArcadeUILib:Notify(text, soundId)
+    -- Pastikan NotificationGui wujud
     if not NotificationGui then
         createNotificationGui()
     end
 
     local soundToPlay = soundId or DEFAULT_NOTIFICATION_SOUND_ID
     
+    -- Mainkan bunyi jika ada
     if soundToPlay then
         local sound = Instance.new("Sound")
         sound.SoundId = "rbxassetid://" .. soundToPlay
@@ -682,6 +686,7 @@ function ArcadeUILib:Notify(text, soundId)
         end)
     end
     
+    -- Cipta elemen notifikasi
     local notifFrame = Instance.new("Frame")
     notifFrame.Size = UDim2.new(0, 300, 0, 0)
     notifFrame.Position = UDim2.new(0.5, 0, 0, -100)
@@ -713,16 +718,19 @@ function ArcadeUILib:Notify(text, soundId)
     textLabel.TextYAlignment = Enum.TextYAlignment.Center
     textLabel.Parent = notifFrame
     
+    -- Animasi
     local targetHeight = 60
     local targetYPosition = 20
     
+    -- Animasi Masuk
     local tweenInfoIn = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local goalIn = { Size = UDim2.new(0, 300, 0, targetHeight), Position = UDim2.new(0.5, 0, 0, targetYPosition) }
     local tweenIn = TweenService:Create(notifFrame, tweenInfoIn, goalIn)
     tweenIn:Play()
     
+    -- Animasi Keluar (dalam coroutine supaya tidak block)
     task.spawn(function()
-        task.wait(3)
+        task.wait(3) -- Tunggu 3 saat
         
         local tweenInfoOut = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         local goalOut = { Size = UDim2.new(0, 300, 0, 0), Position = UDim2.new(0.5, 0, 0, -100) }
@@ -737,11 +745,13 @@ end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================
 function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
+    -- Create::= row container
     local rowFrame = Instance.new("Frame")
     rowFrame.Size = UDim2.new(1, 0, 0, 35)
     rowFrame.BackgroundTransparency = 1
     rowFrame.Parent = ScrollFrame
 
+    -- Helper function to create a single toggle
     local function createSingleToggle(text, callback, position)
         local configKey = "Arcade_" .. text
         local toggle = Instance.new("TextButton")
@@ -764,11 +774,13 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
         stroke.Thickness = 1
         stroke.Parent = toggle
 
+        -- Load initial state from config
         local isToggled = self.Config[configKey] or false
         if isToggled then
             toggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
         end
 
+        -- Call callback on initial load
         if callback then callback(isToggled) end
 
         toggle.MouseButton1Click:Connect(function()
@@ -785,8 +797,10 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
         end)
     end
 
+    -- Create::= first toggle
     createSingleToggle(text1, callback1, UDim2.new(0, 5, 0, 0))
 
+    -- Create::= second toggle if text2 is provided
     if text2 and callback2 then
         createSingleToggle(text2, callback2, UDim2.new(0, 115, 0, 0))
     end

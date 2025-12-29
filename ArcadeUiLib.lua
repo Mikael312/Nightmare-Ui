@@ -1,6 +1,6 @@
 --[[
     ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
-    Converted by AI Assistant
+    Converted by shadow
 ]]
 
 local ArcadeUILib = {}
@@ -63,7 +63,7 @@ end
 
 -- ==================== NOTIFICATION SYSTEM ====================
 local NotificationGui = nil
-local DEFAULT_NOTIFICATION_SOUND_ID = 8486683243 -- ID untuk bunyi 'ding' default
+local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
 
 -- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
 local function createNotificationGui()

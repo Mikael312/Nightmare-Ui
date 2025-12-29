@@ -1,10 +1,6 @@
 --[[
-    ARCADE UI LIBRARY (Final Version - Safe & Complete)
-    - Integrated Config System
-    - Integrated Notification System (CoreGui Parented)
-    - Integrated Utility System (Anti-Lag, Unlock Nearest)
-    - Robust Cleanup to prevent conflicts
-    - All UI elements parented to game.CoreGui for safety
+    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility + Robust Cleanup)
+    Converted by AI Assistant
 ]]
 
 local ArcadeUILib = {}
@@ -67,10 +63,9 @@ end
 
 -- ==================== NOTIFICATION SYSTEM ====================
 local NotificationGui = nil
-local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
+local DEFAULT_NOTIFICATION_SOUND_ID = 3398670839 -- ID untuk bunyi 'ding' default
 
 -- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
--- PENTING: Parent ke game.CoreGui untuk keselamatan
 local function createNotificationGui()
     if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
     
@@ -78,7 +73,7 @@ local function createNotificationGui()
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = game.CoreGui -- <-- PARENT KE COREGUI UNTUK KESELAMATAN
+    NotificationGui.Parent = game.CoreGui
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -304,7 +299,7 @@ local function createUnlockNearestUI()
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = game.CoreGui -- <-- PARENT KE COREGUI UNTUK KESELAMATAN
+    unlockGui.Parent = game.CoreGui
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -394,8 +389,7 @@ function ArcadeUILib:CreateUI()
     -- Load config awal-awal
     self.Config = ConfigSystem:Load()
 
-    -- Cleanup (ROBUST & COMPREHENSIVE)
-    -- PENTING: Menghapus SEMUA GUI yang berkaitan untuk mencegah conflict.
+    -- Cleanup (Lebih Selamat & Komprehensif)
     for _, gui in pairs(game.CoreGui:GetChildren()) do
         if gui.Name == "ArcadeUI" or gui.Name == "ArcadeNotificationGui" or gui.Name == "UnlockBaseUI" then
             gui:Destroy()
@@ -407,7 +401,7 @@ function ArcadeUILib:CreateUI()
     ScreenGui.Name = "ArcadeUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game.CoreGui -- <-- PARENT KE COREGUI UNTUK KESELAMATAN
+    ScreenGui.Parent = game.CoreGui
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")
@@ -495,12 +489,12 @@ function ArcadeUILib:CreateUI()
     utilityStroke.Thickness = 1
     utilityStroke.Parent = UtilityFrame
 
-    -- Utility Title
+    -- Utility Title (TEKS DITUKAR)
     local utilityTitle = Instance.new("TextLabel")
     utilityTitle.Size = UDim2.new(1, 0, 0, 40)
     utilityTitle.Position = UDim2.new(0, 0, 0, 5)
     utilityTitle.BackgroundTransparency = 1
-    utilityTitle.Text = "Utility"
+    utilityTitle.Text = "Utility" -- <-- DITUKAR DI SINI
     utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
     utilityTitle.TextSize = 15
     utilityTitle.Font = Enum.Font.Arcade
@@ -643,7 +637,7 @@ function ArcadeUILib:CreateUI()
         end)
     end
 
-    -- Create the two utility toggles here
+    -- Create::= two utility toggles here
     createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
@@ -736,7 +730,7 @@ function ArcadeUILib:Notify(text, soundId)
     
     -- Animasi Keluar (dalam coroutine supaya tidak block)
     task.spawn(function()
-        task.wait(3)
+        task.wait(3) -- Tunggu 3 saat
         
         local tweenInfoOut = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         local goalOut = { Size = UDim2.new(0, 300, 0, 0), Position = UDim2.new(0.5, 0, 0, -100) }
@@ -751,6 +745,7 @@ end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================
 function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
+    -- Create::= row container
     local rowFrame = Instance.new("Frame")
     rowFrame.Size = UDim2.new(1, 0, 0, 35)
     rowFrame.BackgroundTransparency = 1
@@ -796,18 +791,16 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
                 toggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
             end
 
-            -- Save state to config
             ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
 
-            -- Execute callback
             if callback then callback(isToggled) end
         end)
     end
 
-    -- Create first toggle
+    -- Create::= first toggle
     createSingleToggle(text1, callback1, UDim2.new(0, 5, 0, 0))
 
-    -- Create second toggle if text2 is provided
+    -- Create::= second toggle if text2 is provided
     if text2 and callback2 then
         createSingleToggle(text2, callback2, UDim2.new(0, 115, 0, 0))
     end

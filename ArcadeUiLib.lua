@@ -1,6 +1,7 @@
 --[[
-    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
+    ARCADE UI LIBRARY (Modified Version - Anti-Detection)
     Converted by shadow
+    Modified with anti-detection techniques from Nightmare Hub
 ]]
 
 local ArcadeUILib = {}
@@ -61,7 +62,7 @@ function ConfigSystem:UpdateSetting(config, key, value)
     self:Save(config)
 end
 
--- ==================== NOTIFICATION SYSTEM ====================
+-- ==================== NOTIFICATION SYSTEM (MODIFIED) ====================
 local NotificationGui = nil
 local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
 
@@ -69,11 +70,12 @@ local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' defaul
 local function createNotificationGui()
     if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
     
+    -- Changed to use CoreGui instead of PlayerGui
     NotificationGui = Instance.new("ScreenGui")
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
-    NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    -- Removed ZIndexBehavior to match Nightmare Hub approach
+    NotificationGui.Parent = game.CoreGui
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -298,7 +300,7 @@ local function createUnlockNearestUI()
     local unlockGui = Instance.new("ScreenGui")
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
-    unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    -- Removed ZIndexBehavior to match Nightmare Hub approach
     unlockGui.Parent = game.CoreGui
     
     local unlockMainFrame = Instance.new("Frame")
@@ -376,7 +378,6 @@ local function destroyUnlockNearestUI()
     end
 end
 
-
 -- ==================== UI VARIABLES ====================
 local ScreenGui
 local MainFrame
@@ -398,7 +399,7 @@ function ArcadeUILib:CreateUI()
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ArcadeUI"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    -- Removed ZIndexBehavior to match Nightmare Hub approach
     ScreenGui.Parent = game.CoreGui
 
     -- Toggle Button

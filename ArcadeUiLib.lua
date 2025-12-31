@@ -1,7 +1,6 @@
 --[[
-    ARCADE UI LIBRARY (Anti-Detection Version)
+    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
     Converted by shadow
-    Modified with maximum anti-detection techniques
 ]]
 
 local ArcadeUILib = {}
@@ -11,82 +10,6 @@ local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-
--- ==================== ANTI-DETECTION PROTECTION ====================
--- Protection variables
-local isProtected = false
-local protectionConnections = {}
-local originalMethods = {}
-
--- Function to protect the GUI from detection
-local function protectGui(gui)
-    if isProtected then return end
-    
-    -- Store original methods
-    originalMethods.FindFirstChild = game.CoreGui.FindFirstChild
-    originalMethods.GetChildren = game.CoreGui.GetChildren
-    originalMethods.WaitForChild = game.CoreGui.WaitForChild
-    
-    -- Override FindFirstChild to hide our GUI
-    game.CoreGui.FindFirstChild = function(self, name)
-        local result = originalMethods.FindFirstChild(self, name)
-        if result and (result.Name == "ArcadeUI" or result.Name == "ArcadeNotificationGui" or result.Name == "UnlockBaseUI") then
-            return nil
-        end
-        return result
-    end
-    
-    -- Override GetChildren to hide our GUI
-    game.CoreGui.GetChildren = function(self)
-        local children = originalMethods.GetChildren(self)
-        local filtered = {}
-        for _, child in ipairs(children) do
-            if child.Name ~= "ArcadeUI" and child.Name ~= "ArcadeNotificationGui" and child.Name ~= "UnlockBaseUI" then
-                table.insert(filtered, child)
-            end
-        end
-        return filtered
-    end
-    
-    -- Override WaitForChild to hide our GUI
-    game.CoreGui.WaitForChild = function(self, name, timeout)
-        local result = originalMethods.WaitForChild(self, name, timeout)
-        if result and (result.Name == "ArcadeUI" or result.Name == "ArcadeNotificationGui" or result.Name == "UnlockBaseUI") then
-            return Instance.new("Frame") -- Return dummy frame
-        end
-        return result
-    end
-    
-    -- Add protection against script analysis
-    local mt = getmetatable(gui)
-    if not mt then
-        mt = {}
-        setmetatable(gui, mt)
-    end
-    
-    local oldIndex = mt.__index
-    mt.__index = function(self, key)
-        if key == "Parent" and self.Parent == game.CoreGui then
-            return nil -- Hide the parent relationship
-        end
-        return oldIndex and oldIndex(self, key) or rawget(self, key)
-    end
-    
-    isProtected = true
-end
-
--- Function to restore original methods
-local function restoreOriginalMethods()
-    if not isProtected then return end
-    
-    game.CoreGui.FindFirstChild = originalMethods.FindFirstChild
-    game.CoreGui.GetChildren = originalMethods.GetChildren
-    game.CoreGui.WaitForChild = originalMethods.WaitForChild
-    
-    isProtected = false
-end
 
 -- ==================== CONFIG SAVE SYSTEM ====================
 local ConfigSystem = {}
@@ -149,10 +72,8 @@ local function createNotificationGui()
     NotificationGui = Instance.new("ScreenGui")
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
-    NotificationGui.Parent = game.CoreGui
-    
-    -- Protect the notification GUI
-    protectGui(NotificationGui)
+    NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -377,10 +298,8 @@ local function createUnlockNearestUI()
     local unlockGui = Instance.new("ScreenGui")
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
+    unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     unlockGui.Parent = game.CoreGui
-    
-    -- Protect the unlock UI
-    protectGui(unlockGui)
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -457,6 +376,7 @@ local function destroyUnlockNearestUI()
     end
 end
 
+
 -- ==================== UI VARIABLES ====================
 local ScreenGui
 local MainFrame
@@ -478,10 +398,8 @@ function ArcadeUILib:CreateUI()
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ArcadeUI"
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent = game.CoreGui
-    
-    -- Protect the main GUI
-    protectGui(ScreenGui)
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")
@@ -873,10 +791,5 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
         createSingleToggle(text2, callback2, UDim2.new(0, 115, 0, 0))
     end
 end
-
--- Cleanup function to restore original methods when script is destroyed
-game:BindToClose(function()
-    restoreOriginalMethods()
-end)
 
 return ArcadeUILib

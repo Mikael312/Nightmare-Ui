@@ -1,11 +1,14 @@
 --[[
-    ARCADE UI LIBRARY (With Config System)
-    Converted by AI Assistant
+    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
+    Converted by shadow
 ]]
 
 local ArcadeUILib = {}
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==================== CONFIG SAVE SYSTEM ====================
@@ -57,6 +60,322 @@ function ConfigSystem:UpdateSetting(config, key, value)
     config[key] = value
     self:Save(config)
 end
+
+-- ==================== NOTIFICATION SYSTEM ====================
+local NotificationGui = nil
+local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
+
+-- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
+local function createNotificationGui()
+    if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
+    
+    NotificationGui = Instance.new("ScreenGui")
+    NotificationGui.Name = "ArcadeNotificationGui"
+    NotificationGui.ResetOnSpawn = false
+    NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ==================== UTILITY SYSTEM VARIABLES ====================
+local UtilityFrame = nil
+local UtilityScrollFrame = nil
+local UtilityListLayout = nil
+
+-- Anti-Lag Variables
+local antiLagRunning = false
+local antiLagConnections = {}
+local cleanedCharacters = {}
+
+-- Unlock Nearest Variables
+local unlockNearestUI = nil
+
+-- ==================== UTILITY FUNCTIONS ====================
+local function destroyAllEquippableItems(character)
+    if not character then return end
+    if not antiLagRunning then return end
+    
+    pcall(function()
+        for _, child in ipairs(character:GetChildren()) do
+            if child:IsA("Accessory") or child:IsA("Hat") then
+                child:Destroy()
+            end
+        end
+        
+        for _, child in ipairs(character:GetChildren()) do
+            if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
+                child:Destroy()
+            end
+        end
+        
+        for _, child in ipairs(character:GetDescendants()) do
+            if child.ClassName == "LayeredClothing" or child.ClassName == "WrapLayer" then
+                child:Destroy()
+            end
+        end
+        
+        for _, child in ipairs(character:GetDescendants()) do
+            if child:IsA("Decal") or child:IsA("Texture") then
+                if not (child.Name == "face" and child.Parent and child.Parent.Name == "Head") then
+                    child:Destroy()
+                end
+            end
+        end
+    end)
+end
+
+local function antiLagCleanCharacter(char)
+    if not char then return end
+    destroyAllEquippableItems(char)
+    cleanedCharacters[char] = true
+end
+
+local function antiLagDisconnectAll()
+    for _, conn in ipairs(antiLagConnections) do
+        if typeof(conn) == "RBXScriptConnection" then
+            conn:Disconnect()
+        end
+    end
+    antiLagConnections = {}
+    cleanedCharacters = {}
+end
+
+local function enableAntiLag()
+    if antiLagRunning then 
+        warn("[Anti-Lag] Already running!")
+        return false
+    end
+    
+    antiLagRunning = true
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then
+            antiLagCleanCharacter(plr.Character)
+        end
+    end
+    
+    table.insert(antiLagConnections, Players.PlayerAdded:Connect(function(plr)
+        table.insert(antiLagConnections, plr.CharacterAdded:Connect(function(char)
+            if not antiLagRunning then return end
+            task.wait(0.5)
+            antiLagCleanCharacter(char)
+        end))
+    end))
+    
+    table.insert(antiLagConnections, task.spawn(function()
+        while antiLagRunning do
+            task.wait(3)
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr.Character and not cleanedCharacters[plr.Character] then
+                    antiLagCleanCharacter(plr.Character)
+                end
+            end
+        end
+    end))
+    
+    print("✅ Anti-Lag Enabled")
+    return true
+end
+
+local function disableAntiLag()
+    if not antiLagRunning then 
+        warn("[Anti-Lag] Not running!")
+        return false
+    end
+    
+    antiLagRunning = false
+    antiLagDisconnectAll()
+    
+    print("❌ Anti-Lag Disabled")
+    return true
+end
+
+local function getClosestPlot()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local rootPart = character.HumanoidRootPart
+    
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return nil end
+    
+    local closestPlot = nil
+    local minDistance = 25
+    
+    for _, plot in pairs(plots:GetChildren()) do
+        local plotPos = nil
+        if plot.PrimaryPart then
+            plotPos = plot.PrimaryPart.Position
+        elseif plot:FindFirstChild("Base") then
+            plotPos = plot.Base.Position
+        elseif plot:FindFirstChild("Floor") then
+            plotPos = plot.Floor.Position
+        else
+            plotPos = plot:GetPivot().Position
+        end
+        
+        if plotPos then
+            local distance = (rootPart.Position - plotPos).Magnitude
+            if distance < minDistance then
+                closestPlot = plot
+                minDistance = distance
+            end
+        end
+    end
+    
+    return closestPlot
+end
+
+local function findPrompts(instance, found)
+    for _, child in pairs(instance:GetChildren()) do
+        if child:IsA("ProximityPrompt") then
+            table.insert(found, child)
+        end
+        findPrompts(child, found)
+    end
+end
+
+local function smartInteract(number)
+    local targetPlot = getClosestPlot()
+    
+    if not targetPlot then
+        ArcadeUILib:Notify("No plot nearby!", false)
+        return
+    end
+    
+    local unlockFolder = targetPlot:FindFirstChild("Unlock")
+    if not unlockFolder then
+        ArcadeUILib:Notify("No unlock folder found!", false)
+        return
+    end
+    
+    local unlockItems = {}
+    for _, item in pairs(unlockFolder:GetChildren()) do
+        local pos = nil
+        if item:IsA("Model") then
+            pos = item:GetPivot().Position
+        elseif item:IsA("BasePart") then
+            pos = item.Position
+        end
+        
+        if pos then
+            table.insert(unlockItems, {
+                Object = item,
+                Height = pos.Y
+            })
+        end
+    end
+    
+    table.sort(unlockItems, function(a, b)
+        return a.Height < b.Height
+    end)
+    
+    if number > #unlockItems then
+        ArcadeUILib:Notify("Floor " .. number .. " not found!", false)
+        return
+    end
+    
+    local targetFloor = unlockItems[number].Object
+    
+    local prompts = {}
+    findPrompts(targetFloor, prompts)
+    
+    if #prompts == 0 then
+        ArcadeUILib:Notify("No prompts found on floor " .. number, false)
+        return
+    end
+    
+    for _, prompt in pairs(prompts) do
+        fireproximityprompt(prompt)
+    end
+    
+    ArcadeUILib:Notify("Unlocked Floor " .. number, false)
+end
+
+local function createUnlockNearestUI()
+    if unlockNearestUI then
+        unlockNearestUI:Destroy()
+    end
+    
+    local unlockGui = Instance.new("ScreenGui")
+    unlockGui.Name = "UnlockBaseUI"
+    unlockGui.ResetOnSpawn = false
+    unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    unlockGui.Parent = game.CoreGui
+    
+    local unlockMainFrame = Instance.new("Frame")
+    unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
+    unlockMainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
+    unlockMainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    unlockMainFrame.BackgroundTransparency = 0.1
+    unlockMainFrame.BorderSizePixel = 0
+    unlockMainFrame.Active = true
+    unlockMainFrame.Draggable = true
+    unlockMainFrame.Parent = unlockGui
+    
+    local unlockCorner = Instance.new("UICorner")
+    unlockCorner.CornerRadius = UDim.new(0, 15)
+    unlockCorner.Parent = unlockMainFrame
+    
+    local unlockStroke = Instance.new("UIStroke")
+    unlockStroke.Color = Color3.fromRGB(255, 50, 50)
+    unlockStroke.Thickness = 2
+    unlockStroke.Parent = unlockMainFrame
+    
+    local function createFloorButton(floorNum, yPos)
+        local floorButton = Instance.new("TextButton")
+        floorButton.Size = UDim2.new(0, 75, 0, 50)
+        floorButton.Position = UDim2.new(0.5, -37.5, 0, yPos)
+        floorButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        floorButton.BorderSizePixel = 0
+        floorButton.Text = floorNum .. " Floor"
+        floorButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+        floorButton.TextSize = 18
+        floorButton.Font = Enum.Font.Arcade
+        floorButton.Parent = unlockMainFrame
+        
+        local floorCorner = Instance.new("UICorner")
+        floorCorner.CornerRadius = UDim.new(0, 10)
+        floorCorner.Parent = floorButton
+        
+        floorButton.MouseButton1Click:Connect(function()
+            local originalColor = floorButton.BackgroundColor3
+            floorButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = originalColor
+            }):Play()
+            
+            smartInteract(floorNum)
+        end)
+        
+        floorButton.MouseEnter:Connect(function()
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+            }):Play()
+        end)
+        
+        floorButton.MouseLeave:Connect(function()
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            }):Play()
+        end)
+    end
+    
+    createFloorButton(1, 10)
+    createFloorButton(2, 70)
+    createFloorButton(3, 130)
+    
+    unlockNearestUI = unlockGui
+    print("✅ Unlock Nearest UI Created")
+end
+
+local function destroyUnlockNearestUI()
+    if unlockNearestUI then
+        unlockNearestUI:Destroy()
+        unlockNearestUI = nil
+        print("❌ Unlock Nearest UI Destroyed")
+    end
+end
+
 
 -- ==================== UI VARIABLES ====================
 local ScreenGui
@@ -136,7 +455,6 @@ function ArcadeUILib:CreateUI()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     ScrollFrame.Parent = MainFrame
 
-    -- UIListLayout
     ListLayout = Instance.new("UIListLayout")
     ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     ListLayout.Padding = UDim.new(0, 10)
@@ -144,12 +462,64 @@ function ArcadeUILib:CreateUI()
     ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     ListLayout.Parent = ScrollFrame
 
-    -- Auto-update canvas size
     ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
     end)
 
-    -- Social Buttons
+    -- ==================== UTILITY UI ====================
+    UtilityFrame = Instance.new("Frame")
+    UtilityFrame.Size = UDim2.new(0, 220, 0, 300)
+    UtilityFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
+    UtilityFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    UtilityFrame.BackgroundTransparency = 0.1
+    UtilityFrame.BorderSizePixel = 0
+    UtilityFrame.Active = true
+    UtilityFrame.Draggable = true
+    UtilityFrame.Visible = false
+    UtilityFrame.Parent = ScreenGui
+
+    local utilityCorner = Instance.new("UICorner")
+    utilityCorner.CornerRadius = UDim.new(0, 15)
+    utilityCorner.Parent = UtilityFrame
+
+    local utilityStroke = Instance.new("UIStroke")
+    utilityStroke.Color = Color3.fromRGB(255, 50, 50)
+    utilityStroke.Thickness = 1
+    utilityStroke.Parent = UtilityFrame
+
+    -- Utility Title (TEKS DITUKAR)
+    local utilityTitle = Instance.new("TextLabel")
+    utilityTitle.Size = UDim2.new(1, 0, 0, 40)
+    utilityTitle.Position = UDim2.new(0, 0, 0, 5)
+    utilityTitle.BackgroundTransparency = 1
+    utilityTitle.Text = "Utility" -- <-- DITUKAR DI SINI
+    utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
+    utilityTitle.TextSize = 15
+    utilityTitle.Font = Enum.Font.Arcade
+    utilityTitle.Parent = UtilityFrame
+
+    UtilityScrollFrame = Instance.new("ScrollingFrame")
+    UtilityScrollFrame.Size = UDim2.new(1, -20, 1, -55)
+    UtilityScrollFrame.Position = UDim2.new(0, 10, 0, 45)
+    UtilityScrollFrame.BackgroundTransparency = 1
+    UtilityScrollFrame.BorderSizePixel = 0
+    UtilityScrollFrame.ScrollBarThickness = 4
+    UtilityScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
+    UtilityScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    UtilityScrollFrame.Parent = UtilityFrame
+
+    UtilityListLayout = Instance.new("UIListLayout")
+    UtilityListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UtilityListLayout.Padding = UDim.new(0, 8)
+    UtilityListLayout.FillDirection = Enum.FillDirection.Vertical
+    UtilityListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UtilityListLayout.Parent = UtilityScrollFrame
+
+    UtilityListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        UtilityScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UtilityListLayout.AbsoluteContentSize.Y + 10)
+    end)
+
+    -- Divider
     local divider = Instance.new("Frame")
     divider.Size = UDim2.new(1, -20, 0, 2)
     divider.Position = UDim2.new(0, 10, 1, -65)
@@ -157,34 +527,29 @@ function ArcadeUILib:CreateUI()
     divider.BorderSizePixel = 0
     divider.Parent = MainFrame
 
-    -- TikTok Button
-    local tiktokButton = Instance.new("TextButton")
-    tiktokButton.Size = UDim2.new(0, 100, 0, 32)
-    tiktokButton.Position = UDim2.new(0, 15, 1, -55)
-    tiktokButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    tiktokButton.BorderSizePixel = 0
-    tiktokButton.Text = "  TikTok"
-    tiktokButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tiktokButton.TextSize = 13
-    tiktokButton.Font = Enum.Font.Arcade
-    tiktokButton.Parent = MainFrame
+    -- Utility Button
+    local utilityButton = Instance.new("TextButton")
+    utilityButton.Size = UDim2.new(0, 100, 0, 32)
+    utilityButton.Position = UDim2.new(0, 15, 1, -55)
+    utilityButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
+    utilityButton.BorderSizePixel = 0
+    utilityButton.Text = "Utility"
+    utilityButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    utilityButton.TextSize = 13
+    utilityButton.Font = Enum.Font.Arcade
+    utilityButton.Parent = MainFrame
 
-    local tiktokCorner = Instance.new("UICorner")
-    tiktokCorner.CornerRadius = UDim.new(0, 8)
-    tiktokCorner.Parent = tiktokButton
+    local utilityCornerBtn = Instance.new("UICorner")
+    utilityCornerBtn.CornerRadius = UDim.new(0, 8)
+    utilityCornerBtn.Parent = utilityButton
 
-    local tiktokIcon = Instance.new("ImageLabel")
-    tiktokIcon.Size = UDim2.new(0, 18, 0, 18)
-    tiktokIcon.Position = UDim2.new(0, 8, 0.5, -9)
-    tiktokIcon.BackgroundTransparency = 1
-    tiktokIcon.Image = "rbxassetid://70531653995908"
-    tiktokIcon.Parent = tiktokButton
+    local utilityStrokeBtn = Instance.new("UIStroke")
+    utilityStrokeBtn.Color = Color3.fromRGB(255, 50, 50)
+    utilityStrokeBtn.Thickness = 1
+    utilityStrokeBtn.Parent = utilityButton
 
-    tiktokButton.MouseButton1Click:Connect(function()
-        setclipboard("https://www.tiktok.com/@n1ghtmare.gg?_r=1&_t=ZS-92UYqNKwMLA")
-        tiktokButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        task.wait(0.2)
-        tiktokButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    utilityButton.MouseButton1Click:Connect(function()
+        UtilityFrame.Visible = not UtilityFrame.Visible
     end)
 
     -- Discord Button
@@ -211,7 +576,7 @@ function ArcadeUILib:CreateUI()
     discordIcon.Parent = discordButton
 
     discordButton.MouseButton1Click:Connect(function()
-        setclipboard("https://discord.gg/V4a7BbH5")
+        setclipboard("https://discord.gg/WB2p6Zvh")
         discordButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
         task.wait(0.2)
         discordButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
@@ -222,18 +587,161 @@ function ArcadeUILib:CreateUI()
         MainFrame.Visible = not MainFrame.Visible
     end)
 
+    -- ==================== CREATE UTILITY TOGGLES (DIINTEGRASIKAN) ====================
+    local function createIntegratedUtilityToggle(toggleName, configKey, callback)
+        local utilityToggle = Instance.new("TextButton")
+        utilityToggle.Name = "UtilityToggle_" .. toggleName
+        utilityToggle.Size = UDim2.new(1, -10, 0, 32)
+        utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+        utilityToggle.BorderSizePixel = 0
+        utilityToggle.Text = toggleName
+        utilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        utilityToggle.TextSize = 12
+        utilityToggle.Font = Enum.Font.Arcade
+        utilityToggle.Parent = UtilityScrollFrame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = utilityToggle
+        
+        local btnStroke = Instance.new("UIStroke")
+        btnStroke.Color = Color3.fromRGB(255, 50, 50)
+        btnStroke.Thickness = 1
+        btnStroke.Parent = utilityToggle
+        
+        -- Load initial state from config
+        local isToggled = self.Config[configKey] or false
+        if isToggled then
+            utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+        end
+
+        -- Call callback on initial load
+        if callback then callback(isToggled) end
+        
+        utilityToggle.MouseButton1Click:Connect(function()
+            isToggled = not isToggled
+            
+            if isToggled then
+                utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+            else
+                utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+            end
+            
+            -- Save state to config
+            ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
+            
+            -- Execute callback
+            if callback then callback(isToggled) end
+        end)
+    end
+
+    -- Create the two utility toggles here
+    createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
+        if state then
+            enableAntiLag()
+            self:Notify("Hide Skin Enabled!")
+        else
+            disableAntiLag()
+            self:Notify("Hide Skin Disabled!")
+        end
+    end)
+
+    createIntegratedUtilityToggle("Unlock Nearest", "Arcade_Utility_UnlockNearest", function(state)
+        if state then
+            createUnlockNearestUI()
+            self:Notify("Unlock Nearest UI Enabled!")
+        else
+            destroyUnlockNearestUI()
+            self:Notify("Unlock Nearest UI Disabled!")
+        end
+    end)
+
+    -- Create Notification Gui at the end
+    createNotificationGui()
+
     print("✅ Arcade UI Created Successfully!")
+end
+
+-- Fungsi utama untuk menunjukkan notifikasi
+function ArcadeUILib:Notify(text, soundId)
+    if not NotificationGui then
+        createNotificationGui()
+    end
+
+    local soundToPlay = soundId or DEFAULT_NOTIFICATION_SOUND_ID
+    
+    if soundToPlay then
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://" .. soundToPlay
+        sound.Volume = 0.4
+        sound.Parent = SoundService
+        sound:Play()
+        
+        sound.Ended:Connect(function()
+            sound:Destroy()
+        end)
+    end
+    
+    local notifFrame = Instance.new("Frame")
+    notifFrame.Size = UDim2.new(0, 300, 0, 0)
+    notifFrame.Position = UDim2.new(0.5, 0, 0, -100)
+    notifFrame.AnchorPoint = Vector2.new(0.5, 0)
+    notifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    notifFrame.BackgroundTransparency = 0.1
+    notifFrame.BorderSizePixel = 0
+    notifFrame.Parent = NotificationGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = notifFrame
+    
+    local outline = Instance.new("UIStroke")
+    outline.Color = Color3.fromRGB(255, 50, 50)
+    outline.Thickness = 1.0
+    outline.Parent = notifFrame
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -20, 1, 0)
+    textLabel.Position = UDim2.new(0, 10, 0, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text
+    textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    textLabel.Font = Enum.Font.Arcade
+    textLabel.TextSize = 18
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Center
+    textLabel.TextYAlignment = Enum.TextYAlignment.Center
+    textLabel.Parent = notifFrame
+    
+    local targetHeight = 60
+    local targetYPosition = 20
+    
+    local tweenInfoIn = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local goalIn = { Size = UDim2.new(0, 300, 0, targetHeight), Position = UDim2.new(0.5, 0, 0, targetYPosition) }
+    local tweenIn = TweenService:Create(notifFrame, tweenInfoIn, goalIn)
+    tweenIn:Play()
+    
+    task.spawn(function()
+        task.wait(3)
+        
+        local tweenInfoOut = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        local goalOut = { Size = UDim2.new(0, 300, 0, 0), Position = UDim2.new(0.5, 0, 0, -100) }
+        local tweenOut = TweenService:Create(notifFrame, tweenInfoOut, goalOut)
+        tweenOut:Play()
+        
+        tweenOut.Completed:Connect(function()
+            notifFrame:Destroy()
+        end)
+    end)
 end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================
 function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
-    -- Create the row container
     local rowFrame = Instance.new("Frame")
     rowFrame.Size = UDim2.new(1, 0, 0, 35)
     rowFrame.BackgroundTransparency = 1
     rowFrame.Parent = ScrollFrame
 
-    -- Helper function to create a single toggle
     local function createSingleToggle(text, callback, position)
         local configKey = "Arcade_" .. text
         local toggle = Instance.new("TextButton")
@@ -256,13 +764,11 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
         stroke.Thickness = 1
         stroke.Parent = toggle
 
-        -- Load initial state from config
         local isToggled = self.Config[configKey] or false
         if isToggled then
             toggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
         end
 
-        -- Call callback on initial load
         if callback then callback(isToggled) end
 
         toggle.MouseButton1Click:Connect(function()
@@ -273,18 +779,14 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
                 toggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
             end
 
-            -- Save state to config
             ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
 
-            -- Execute callback
             if callback then callback(isToggled) end
         end)
     end
 
-    -- Create the first toggle
     createSingleToggle(text1, callback1, UDim2.new(0, 5, 0, 0))
 
-    -- Create the second toggle if text2 is provided
     if text2 and callback2 then
         createSingleToggle(text2, callback2, UDim2.new(0, 115, 0, 0))
     end

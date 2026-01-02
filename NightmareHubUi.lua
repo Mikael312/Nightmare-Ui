@@ -1,5 +1,5 @@
 --[[
-    NIGHTMARE HUB UI LIBRARY (With Config System + Notification System + Integrated Utility)
+    NIGHTMARE HUB UI LIBRARY (With Config System + Integrated Utility)
     Converted by shadow
 ]]
 
@@ -7,7 +7,6 @@ local NightmareHubUi = {}
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
-local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
@@ -59,21 +58,6 @@ end
 function ConfigSystem:UpdateSetting(config, key, value)
     config[key] = value
     self:Save(config)
-end
-
--- ==================== NOTIFICATION SYSTEM ====================
-local NotificationGui = nil
-local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' default
-
--- Function untuk mencipta NotificationGui (dipanggil sekali sahaja)
-local function createNotificationGui()
-    if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
-    
-    NotificationGui = Instance.new("ScreenGui")
-    NotificationGui.Name = "NightmareHubNotificationGui"
-    NotificationGui.ResetOnSpawn = false
-    NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -237,13 +221,13 @@ local function smartInteract(number)
     local targetPlot = getClosestPlot()
     
     if not targetPlot then
-        NightmareHubUi:Notify("No plot nearby!", false)
+        print("No plot nearby!")
         return
     end
     
     local unlockFolder = targetPlot:FindFirstChild("Unlock")
     if not unlockFolder then
-        NightmareHubUi:Notify("No unlock folder found!", false)
+        print("No unlock folder found!")
         return
     end
     
@@ -269,7 +253,7 @@ local function smartInteract(number)
     end)
     
     if number > #unlockItems then
-        NightmareHubUi:Notify("Floor " .. number .. " not found!", false)
+        print("Floor " .. number .. " not found!")
         return
     end
     
@@ -279,7 +263,7 @@ local function smartInteract(number)
     findPrompts(targetFloor, prompts)
     
     if #prompts == 0 then
-        NightmareHubUi:Notify("No prompts found on floor " .. number, false)
+        print("No prompts found on floor " .. number)
         return
     end
     
@@ -287,7 +271,7 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    NightmareHubUi:Notify("Unlocked Floor " .. number, false)
+    print("Unlocked Floor " .. number)
 end
 
 local function createUnlockNearestUI()
@@ -487,12 +471,12 @@ function NightmareHubUi:CreateUI()
     utilityStroke.Thickness = 1
     utilityStroke.Parent = UtilityFrame
 
-    -- Utility Title (TEKS DITUKAR)
+    -- Utility Title
     local utilityTitle = Instance.new("TextLabel")
     utilityTitle.Size = UDim2.new(1, 0, 0, 40)
     utilityTitle.Position = UDim2.new(0, 0, 0, 5)
     utilityTitle.BackgroundTransparency = 1
-    utilityTitle.Text = "Utility" -- <-- DITUKAR DI SINI
+    utilityTitle.Text = "Utility"
     utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
     utilityTitle.TextSize = 15
     utilityTitle.Font = Enum.Font.Arcade
@@ -639,100 +623,20 @@ function NightmareHubUi:CreateUI()
     createIntegratedUtilityToggle("Hide Skin", "NightmareHub_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
-            self:Notify("Hide Skin Enabled!")
         else
             disableAntiLag()
-            self:Notify("Hide Skin Disabled!")
         end
     end)
 
     createIntegratedUtilityToggle("Unlock Nearest", "NightmareHub_Utility_UnlockNearest", function(state)
         if state then
             createUnlockNearestUI()
-            self:Notify("Unlock Nearest UI Enabled!")
         else
             destroyUnlockNearestUI()
-            self:Notify("Unlock Nearest UI Disabled!")
         end
     end)
 
-    -- Create Notification Gui at the end
-    createNotificationGui()
-
     print("✅ Nightmare Hub UI Created Successfully!")
-end
-
--- Fungsi utama untuk menunjukkan notifikasi
-function NightmareHubUi:Notify(text, soundId)
-    if not NotificationGui then
-        createNotificationGui()
-    end
-
-    local soundToPlay = soundId or DEFAULT_NOTIFICATION_SOUND_ID
-    
-    if soundToPlay then
-        local sound = Instance.new("Sound")
-        sound.SoundId = "rbxassetid://" .. soundToPlay
-        sound.Volume = 0.4
-        sound.Parent = SoundService
-        sound:Play()
-        
-        sound.Ended:Connect(function()
-            sound:Destroy()
-        end)
-    end
-    
-    local notifFrame = Instance.new("Frame")
-    notifFrame.Size = UDim2.new(0, 300, 0, 0)
-    notifFrame.Position = UDim2.new(0.5, 0, 0, -100)
-    notifFrame.AnchorPoint = Vector2.new(0.5, 0)
-    notifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    notifFrame.BackgroundTransparency = 0.1
-    notifFrame.BorderSizePixel = 0
-    notifFrame.Parent = NotificationGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = notifFrame
-    
-    local outline = Instance.new("UIStroke")
-    outline.Color = Color3.fromRGB(255, 50, 50)
-    outline.Thickness = 1.0
-    outline.Parent = notifFrame
-    
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -20, 1, 0)
-    textLabel.Position = UDim2.new(0, 10, 0, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = text
-    textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-    textLabel.Font = Enum.Font.Arcade
-    textLabel.TextSize = 18
-    textLabel.TextWrapped = true
-    textLabel.TextXAlignment = Enum.TextXAlignment.Center
-    textLabel.TextYAlignment = Enum.TextYAlignment.Center
-    textLabel.Parent = notifFrame
-    
-    local targetHeight = 60
-    local targetYPosition = 20
-    
-    local tweenInfoIn = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    local goalIn = { Size = UDim2.new(0, 300, 0, targetHeight), Position = UDim2.new(0.5, 0, 0, targetYPosition) }
-    local tweenIn = TweenService:Create(notifFrame, tweenInfoIn, goalIn)
-    tweenIn:Play()
-    
-    task.spawn(function()
-        task.wait(3)
-        
-        local tweenInfoOut = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        local goalOut = { Size = UDim2.new(0, 300, 0, 0), Position = UDim2.new(0.5, 0, 0, -100) }
-        local tweenOut = TweenService:Create(notifFrame, tweenInfoOut, goalOut)
-        tweenOut:Play()
-        
-        tweenOut.Completed:Connect(function()
-            notifFrame:Destroy()
-        end)
-    end)
 end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================

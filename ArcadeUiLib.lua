@@ -1,6 +1,7 @@
 --[[
     ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
     Converted by shadow
+    -- MODIFIED: Added gethui_safe() for anti-detection
 ]]
 
 local ArcadeUILib = {}
@@ -9,8 +10,21 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- ==================== ANTI-DETECTION: GETHUI ====================
+-- Fungsi ini cuba menggunakan gethui() untuk menyembunyikan UI.
+-- Jika exploit tidak menyokong gethui(), ia akan menggunakan CoreGui sebagai pilihan terakhir.
+local function gethui_safe()
+    local success, result = pcall(function()
+        return gethui()
+    end)
+    if success then
+        return result
+    else
+        return game:GetService("CoreGui")
+    end
+end
 
 -- ==================== CONFIG SAVE SYSTEM ====================
 local ConfigSystem = {}
@@ -74,7 +88,7 @@ local function createNotificationGui()
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = game.CoreGui
+    NotificationGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -300,7 +314,7 @@ local function createUnlockNearestUI()
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = game.CoreGui
+    unlockGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -391,8 +405,8 @@ function ArcadeUILib:CreateUI()
     self.Config = ConfigSystem:Load()
 
     -- Cleanup
-    if game.CoreGui:FindFirstChild("ArcadeUI") then
-        game.CoreGui:FindFirstChild("ArcadeUI"):Destroy()
+    if gethui_safe():FindFirstChild("ArcadeUI") then -- <<< CHANGED: Using gethui_safe()
+        gethui_safe():FindFirstChild("ArcadeUI"):Destroy() -- <<< CHANGED: Using gethui_safe()
     end
 
     -- ScreenGui
@@ -400,7 +414,7 @@ function ArcadeUILib:CreateUI()
     ScreenGui.Name = "ArcadeUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game.CoreGui
+    ScreenGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")

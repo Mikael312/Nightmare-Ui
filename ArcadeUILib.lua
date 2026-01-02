@@ -73,7 +73,7 @@ local function createNotificationGui()
     NotificationGui.Name = "ArcadeNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    NotificationGui.Parent = gethui() -- Diubah dari PlayerGui ke gethui()
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -299,7 +299,7 @@ local function createUnlockNearestUI()
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = game.CoreGui
+    unlockGui.Parent = gethui() -- Diubah dari game.CoreGui ke gethui()
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -390,8 +390,8 @@ function ArcadeUILib:CreateUI()
     self.Config = ConfigSystem:Load()
 
     -- Cleanup
-    if game.CoreGui:FindFirstChild("ArcadeUI") then
-        game.CoreGui:FindFirstChild("ArcadeUI"):Destroy()
+    if gethui():FindFirstChild("ArcadeUI") then -- Diubah dari game.CoreGui ke gethui()
+        gethui():FindFirstChild("ArcadeUI"):Destroy() -- Diubah dari game.CoreGui ke gethui()
     end
 
     -- ScreenGui
@@ -399,7 +399,7 @@ function ArcadeUILib:CreateUI()
     ScreenGui.Name = "ArcadeUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game.CoreGui
+    ScreenGui.Parent = gethui() -- Diubah dari game.CoreGui ke gethui()
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")

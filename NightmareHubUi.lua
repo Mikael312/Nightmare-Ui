@@ -1,10 +1,9 @@
 --[[
-    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
+    NIGHTMARE HUB UI LIBRARY (With Config System + Notification System + Integrated Utility)
     Converted by shadow
-    -- MODIFIED: Added gethui_safe() for anti-detection
 ]]
 
-local ArcadeUILib = {}
+local NightmareHubUi = {}
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
@@ -12,23 +11,9 @@ local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== ANTI-DETECTION: GETHUI ====================
--- Fungsi ini cuba menggunakan gethui() untuk menyembunyikan UI.
--- Jika exploit tidak menyokong gethui(), ia akan menggunakan CoreGui sebagai pilihan terakhir.
-local function gethui_safe()
-    local success, result = pcall(function()
-        return gethui()
-    end)
-    if success then
-        return result
-    else
-        return game:GetService("CoreGui")
-    end
-end
-
 -- ==================== CONFIG SAVE SYSTEM ====================
 local ConfigSystem = {}
-ConfigSystem.ConfigFile = "ArcadeUI_Config.json"
+ConfigSystem.ConfigFile = "NightmareHubUi_Config.json"
 
 -- Default config
 ConfigSystem.DefaultConfig = {}
@@ -43,14 +28,14 @@ function ConfigSystem:Load()
         end)
         
         if success and result then
-            print("✅ ArcadeUI Config loaded!")
+            print("✅ NightmareHubUi Config loaded!")
             return result
         else
             warn("⚠️ Failed to load config, using defaults")
             return self.DefaultConfig
         end
     else
-        print("📝 No ArcadeUI config file found, creating new one...")
+        print("📝 No NightmareHubUi config file found, creating new one...")
         return self.DefaultConfig
     end
 end
@@ -85,10 +70,10 @@ local function createNotificationGui()
     if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
     
     NotificationGui = Instance.new("ScreenGui")
-    NotificationGui.Name = "ArcadeNotificationGui"
+    NotificationGui.Name = "NightmareHubNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
+    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -252,13 +237,13 @@ local function smartInteract(number)
     local targetPlot = getClosestPlot()
     
     if not targetPlot then
-        ArcadeUILib:Notify("No plot nearby!", false)
+        NightmareHubUi:Notify("No plot nearby!", false)
         return
     end
     
     local unlockFolder = targetPlot:FindFirstChild("Unlock")
     if not unlockFolder then
-        ArcadeUILib:Notify("No unlock folder found!", false)
+        NightmareHubUi:Notify("No unlock folder found!", false)
         return
     end
     
@@ -284,7 +269,7 @@ local function smartInteract(number)
     end)
     
     if number > #unlockItems then
-        ArcadeUILib:Notify("Floor " .. number .. " not found!", false)
+        NightmareHubUi:Notify("Floor " .. number .. " not found!", false)
         return
     end
     
@@ -294,7 +279,7 @@ local function smartInteract(number)
     findPrompts(targetFloor, prompts)
     
     if #prompts == 0 then
-        ArcadeUILib:Notify("No prompts found on floor " .. number, false)
+        NightmareHubUi:Notify("No prompts found on floor " .. number, false)
         return
     end
     
@@ -302,7 +287,7 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    ArcadeUILib:Notify("Unlocked Floor " .. number, false)
+    NightmareHubUi:Notify("Unlocked Floor " .. number, false)
 end
 
 local function createUnlockNearestUI()
@@ -314,7 +299,7 @@ local function createUnlockNearestUI()
     unlockGui.Name = "UnlockBaseUI"
     unlockGui.ResetOnSpawn = false
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
+    unlockGui.Parent = game.CoreGui
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -400,21 +385,21 @@ local ScrollFrame
 local ListLayout
 
 -- ==================== CREATE UI ====================
-function ArcadeUILib:CreateUI()
+function NightmareHubUi:CreateUI()
     -- Load config awal-awal
     self.Config = ConfigSystem:Load()
 
     -- Cleanup
-    if gethui_safe():FindFirstChild("ArcadeUI") then -- <<< CHANGED: Using gethui_safe()
-        gethui_safe():FindFirstChild("ArcadeUI"):Destroy() -- <<< CHANGED: Using gethui_safe()
+    if game.CoreGui:FindFirstChild("NightmareHubUi") then
+        game.CoreGui:FindFirstChild("NightmareHubUi"):Destroy()
     end
 
     -- ScreenGui
     ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ArcadeUI"
+    ScreenGui.Name = "NightmareHubUi"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = gethui_safe() -- <<< CHANGED: Using gethui_safe()
+    ScreenGui.Parent = game.CoreGui
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")
@@ -651,7 +636,7 @@ function ArcadeUILib:CreateUI()
     end
 
     -- Create the two utility toggles here
-    createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
+    createIntegratedUtilityToggle("Hide Skin", "NightmareHub_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
             self:Notify("Hide Skin Enabled!")
@@ -661,7 +646,7 @@ function ArcadeUILib:CreateUI()
         end
     end)
 
-    createIntegratedUtilityToggle("Unlock Nearest", "Arcade_Utility_UnlockNearest", function(state)
+    createIntegratedUtilityToggle("Unlock Nearest", "NightmareHub_Utility_UnlockNearest", function(state)
         if state then
             createUnlockNearestUI()
             self:Notify("Unlock Nearest UI Enabled!")
@@ -674,11 +659,11 @@ function ArcadeUILib:CreateUI()
     -- Create Notification Gui at the end
     createNotificationGui()
 
-    print("✅ Arcade UI Created Successfully!")
+    print("✅ Nightmare Hub UI Created Successfully!")
 end
 
 -- Fungsi utama untuk menunjukkan notifikasi
-function ArcadeUILib:Notify(text, soundId)
+function NightmareHubUi:Notify(text, soundId)
     if not NotificationGui then
         createNotificationGui()
     end
@@ -751,14 +736,14 @@ function ArcadeUILib:Notify(text, soundId)
 end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================
-function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
+function NightmareHubUi:AddToggleRow(text1, callback1, text2, callback2)
     local rowFrame = Instance.new("Frame")
     rowFrame.Size = UDim2.new(1, 0, 0, 35)
     rowFrame.BackgroundTransparency = 1
     rowFrame.Parent = ScrollFrame
 
     local function createSingleToggle(text, callback, position)
-        local configKey = "Arcade_" .. text
+        local configKey = "NightmareHub_" .. text
         local toggle = Instance.new("TextButton")
         toggle.Size = UDim2.new(0, 100, 0, 32)
         toggle.Position = position
@@ -807,4 +792,4 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
     end
 end
 
-return ArcadeUILib
+return NightmareHubUi

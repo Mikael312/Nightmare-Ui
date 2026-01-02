@@ -1,5 +1,5 @@
 --[[
-    NIGHTMARE HUB UI LIBRARY (With Config System + Integrated Utility)
+    NIGHTMARE HUB UI LIBRARY (Config System Only)
     Converted by shadow
 ]]
 
@@ -60,20 +60,12 @@ function ConfigSystem:UpdateSetting(config, key, value)
     self:Save(config)
 end
 
--- ==================== UTILITY SYSTEM VARIABLES ====================
-local UtilityFrame = nil
-local UtilityScrollFrame = nil
-local UtilityListLayout = nil
-
+-- ==================== ANTI-LAG FUNCTIONS ====================
 -- Anti-Lag Variables
 local antiLagRunning = false
 local antiLagConnections = {}
 local cleanedCharacters = {}
 
--- Unlock Nearest Variables
-local unlockNearestUI = nil
-
--- ==================== UTILITY FUNCTIONS ====================
 local function destroyAllEquippableItems(character)
     if not character then return end
     if not antiLagRunning then return end
@@ -173,192 +165,9 @@ local function disableAntiLag()
     return true
 end
 
-local function getClosestPlot()
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-    local rootPart = character.HumanoidRootPart
-    
-    local plots = workspace:FindFirstChild("Plots")
-    if not plots then return nil end
-    
-    local closestPlot = nil
-    local minDistance = 25
-    
-    for _, plot in pairs(plots:GetChildren()) do
-        local plotPos = nil
-        if plot.PrimaryPart then
-            plotPos = plot.PrimaryPart.Position
-        elseif plot:FindFirstChild("Base") then
-            plotPos = plot.Base.Position
-        elseif plot:FindFirstChild("Floor") then
-            plotPos = plot.Floor.Position
-        else
-            plotPos = plot:GetPivot().Position
-        end
-        
-        if plotPos then
-            local distance = (rootPart.Position - plotPos).Magnitude
-            if distance < minDistance then
-                closestPlot = plot
-                minDistance = distance
-            end
-        end
-    end
-    
-    return closestPlot
-end
-
-local function findPrompts(instance, found)
-    for _, child in pairs(instance:GetChildren()) do
-        if child:IsA("ProximityPrompt") then
-            table.insert(found, child)
-        end
-        findPrompts(child, found)
-    end
-end
-
-local function smartInteract(number)
-    local targetPlot = getClosestPlot()
-    
-    if not targetPlot then
-        print("No plot nearby!")
-        return
-    end
-    
-    local unlockFolder = targetPlot:FindFirstChild("Unlock")
-    if not unlockFolder then
-        print("No unlock folder found!")
-        return
-    end
-    
-    local unlockItems = {}
-    for _, item in pairs(unlockFolder:GetChildren()) do
-        local pos = nil
-        if item:IsA("Model") then
-            pos = item:GetPivot().Position
-        elseif item:IsA("BasePart") then
-            pos = item.Position
-        end
-        
-        if pos then
-            table.insert(unlockItems, {
-                Object = item,
-                Height = pos.Y
-            })
-        end
-    end
-    
-    table.sort(unlockItems, function(a, b)
-        return a.Height < b.Height
-    end)
-    
-    if number > #unlockItems then
-        print("Floor " .. number .. " not found!")
-        return
-    end
-    
-    local targetFloor = unlockItems[number].Object
-    
-    local prompts = {}
-    findPrompts(targetFloor, prompts)
-    
-    if #prompts == 0 then
-        print("No prompts found on floor " .. number)
-        return
-    end
-    
-    for _, prompt in pairs(prompts) do
-        fireproximityprompt(prompt)
-    end
-    
-    print("Unlocked Floor " .. number)
-end
-
-local function createUnlockNearestUI()
-    if unlockNearestUI then
-        unlockNearestUI:Destroy()
-    end
-    
-    local unlockGui = Instance.new("ScreenGui")
-    unlockGui.Name = "UnlockBaseUI"
-    unlockGui.ResetOnSpawn = false
-    unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = game.CoreGui
-    
-    local unlockMainFrame = Instance.new("Frame")
-    unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
-    unlockMainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
-    unlockMainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    unlockMainFrame.BackgroundTransparency = 0.1
-    unlockMainFrame.BorderSizePixel = 0
-    unlockMainFrame.Active = true
-    unlockMainFrame.Draggable = true
-    unlockMainFrame.Parent = unlockGui
-    
-    local unlockCorner = Instance.new("UICorner")
-    unlockCorner.CornerRadius = UDim.new(0, 15)
-    unlockCorner.Parent = unlockMainFrame
-    
-    local unlockStroke = Instance.new("UIStroke")
-    unlockStroke.Color = Color3.fromRGB(255, 50, 50)
-    unlockStroke.Thickness = 2
-    unlockStroke.Parent = unlockMainFrame
-    
-    local function createFloorButton(floorNum, yPos)
-        local floorButton = Instance.new("TextButton")
-        floorButton.Size = UDim2.new(0, 75, 0, 50)
-        floorButton.Position = UDim2.new(0.5, -37.5, 0, yPos)
-        floorButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        floorButton.BorderSizePixel = 0
-        floorButton.Text = floorNum .. " Floor"
-        floorButton.TextColor3 = Color3.fromRGB(255, 100, 100)
-        floorButton.TextSize = 18
-        floorButton.Font = Enum.Font.Arcade
-        floorButton.Parent = unlockMainFrame
-        
-        local floorCorner = Instance.new("UICorner")
-        floorCorner.CornerRadius = UDim.new(0, 10)
-        floorCorner.Parent = floorButton
-        
-        floorButton.MouseButton1Click:Connect(function()
-            local originalColor = floorButton.BackgroundColor3
-            floorButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-            
-            TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = originalColor
-            }):Play()
-            
-            smartInteract(floorNum)
-        end)
-        
-        floorButton.MouseEnter:Connect(function()
-            TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-            }):Play()
-        end)
-        
-        floorButton.MouseLeave:Connect(function()
-            TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            }):Play()
-        end)
-    end
-    
-    createFloorButton(1, 10)
-    createFloorButton(2, 70)
-    createFloorButton(3, 130)
-    
-    unlockNearestUI = unlockGui
-    print("✅ Unlock Nearest UI Created")
-end
-
-local function destroyUnlockNearestUI()
-    if unlockNearestUI then
-        unlockNearestUI:Destroy()
-        unlockNearestUI = nil
-        print("❌ Unlock Nearest UI Destroyed")
-    end
-end
+-- Mendedahkan fungsi-fungsi ini kepada skrip luar
+NightmareHubUi.EnableAntiLag = enableAntiLag
+NightmareHubUi.DisableAntiLag = disableAntiLag
 
 
 -- ==================== UI VARIABLES ====================
@@ -450,59 +259,6 @@ function NightmareHubUi:CreateUI()
         ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
     end)
 
-    -- ==================== UTILITY UI ====================
-    UtilityFrame = Instance.new("Frame")
-    UtilityFrame.Size = UDim2.new(0, 220, 0, 300)
-    UtilityFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
-    UtilityFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    UtilityFrame.BackgroundTransparency = 0.1
-    UtilityFrame.BorderSizePixel = 0
-    UtilityFrame.Active = true
-    UtilityFrame.Draggable = true
-    UtilityFrame.Visible = false
-    UtilityFrame.Parent = ScreenGui
-
-    local utilityCorner = Instance.new("UICorner")
-    utilityCorner.CornerRadius = UDim.new(0, 15)
-    utilityCorner.Parent = UtilityFrame
-
-    local utilityStroke = Instance.new("UIStroke")
-    utilityStroke.Color = Color3.fromRGB(255, 50, 50)
-    utilityStroke.Thickness = 1
-    utilityStroke.Parent = UtilityFrame
-
-    -- Utility Title
-    local utilityTitle = Instance.new("TextLabel")
-    utilityTitle.Size = UDim2.new(1, 0, 0, 40)
-    utilityTitle.Position = UDim2.new(0, 0, 0, 5)
-    utilityTitle.BackgroundTransparency = 1
-    utilityTitle.Text = "Utility"
-    utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
-    utilityTitle.TextSize = 15
-    utilityTitle.Font = Enum.Font.Arcade
-    utilityTitle.Parent = UtilityFrame
-
-    UtilityScrollFrame = Instance.new("ScrollingFrame")
-    UtilityScrollFrame.Size = UDim2.new(1, -20, 1, -55)
-    UtilityScrollFrame.Position = UDim2.new(0, 10, 0, 45)
-    UtilityScrollFrame.BackgroundTransparency = 1
-    UtilityScrollFrame.BorderSizePixel = 0
-    UtilityScrollFrame.ScrollBarThickness = 4
-    UtilityScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
-    UtilityScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    UtilityScrollFrame.Parent = UtilityFrame
-
-    UtilityListLayout = Instance.new("UIListLayout")
-    UtilityListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UtilityListLayout.Padding = UDim.new(0, 8)
-    UtilityListLayout.FillDirection = Enum.FillDirection.Vertical
-    UtilityListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    UtilityListLayout.Parent = UtilityScrollFrame
-
-    UtilityListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        UtilityScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UtilityListLayout.AbsoluteContentSize.Y + 10)
-    end)
-
     -- Divider
     local divider = Instance.new("Frame")
     divider.Size = UDim2.new(1, -20, 0, 2)
@@ -510,31 +266,6 @@ function NightmareHubUi:CreateUI()
     divider.BackgroundTransparency = 1
     divider.BorderSizePixel = 0
     divider.Parent = MainFrame
-
-    -- Utility Button
-    local utilityButton = Instance.new("TextButton")
-    utilityButton.Size = UDim2.new(0, 100, 0, 32)
-    utilityButton.Position = UDim2.new(0, 15, 1, -55)
-    utilityButton.BackgroundColor3 = Color3.fromRGB(139, 0, 0)
-    utilityButton.BorderSizePixel = 0
-    utilityButton.Text = "Utility"
-    utilityButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    utilityButton.TextSize = 13
-    utilityButton.Font = Enum.Font.Arcade
-    utilityButton.Parent = MainFrame
-
-    local utilityCornerBtn = Instance.new("UICorner")
-    utilityCornerBtn.CornerRadius = UDim.new(0, 8)
-    utilityCornerBtn.Parent = utilityButton
-
-    local utilityStrokeBtn = Instance.new("UIStroke")
-    utilityStrokeBtn.Color = Color3.fromRGB(255, 50, 50)
-    utilityStrokeBtn.Thickness = 1
-    utilityStrokeBtn.Parent = utilityButton
-
-    utilityButton.MouseButton1Click:Connect(function()
-        UtilityFrame.Visible = not UtilityFrame.Visible
-    end)
 
     -- Discord Button
     local discordButton = Instance.new("TextButton")
@@ -569,71 +300,6 @@ function NightmareHubUi:CreateUI()
     -- Toggle button functionality
     ToggleButton.MouseButton1Click:Connect(function()
         MainFrame.Visible = not MainFrame.Visible
-    end)
-
-    -- ==================== CREATE UTILITY TOGGLES (DIINTEGRASIKAN) ====================
-    local function createIntegratedUtilityToggle(toggleName, configKey, callback)
-        local utilityToggle = Instance.new("TextButton")
-        utilityToggle.Name = "UtilityToggle_" .. toggleName
-        utilityToggle.Size = UDim2.new(1, -10, 0, 32)
-        utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-        utilityToggle.BorderSizePixel = 0
-        utilityToggle.Text = toggleName
-        utilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        utilityToggle.TextSize = 12
-        utilityToggle.Font = Enum.Font.Arcade
-        utilityToggle.Parent = UtilityScrollFrame
-        
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 8)
-        btnCorner.Parent = utilityToggle
-        
-        local btnStroke = Instance.new("UIStroke")
-        btnStroke.Color = Color3.fromRGB(255, 50, 50)
-        btnStroke.Thickness = 1
-        btnStroke.Parent = utilityToggle
-        
-        -- Load initial state from config
-        local isToggled = self.Config[configKey] or false
-        if isToggled then
-            utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-        end
-
-        -- Call callback on initial load
-        if callback then callback(isToggled) end
-        
-        utilityToggle.MouseButton1Click:Connect(function()
-            isToggled = not isToggled
-            
-            if isToggled then
-                utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-            else
-                utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-            end
-            
-            -- Save state to config
-            ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
-            
-            -- Execute callback
-            if callback then callback(isToggled) end
-        end)
-    end
-
-    -- Create the two utility toggles here
-    createIntegratedUtilityToggle("Hide Skin", "NightmareHub_Utility_HideSkin", function(state)
-        if state then
-            enableAntiLag()
-        else
-            disableAntiLag()
-        end
-    end)
-
-    createIntegratedUtilityToggle("Unlock Nearest", "NightmareHub_Utility_UnlockNearest", function(state)
-        if state then
-            createUnlockNearestUI()
-        else
-            destroyUnlockNearestUI()
-        end
     end)
 
     print("✅ Nightmare Hub UI Created Successfully!")

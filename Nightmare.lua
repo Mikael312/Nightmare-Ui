@@ -14,7 +14,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- ==================== ANTI-DETECTION PARENT (INFINITE YIELD METHOD) ====================
 -- Fungsi untuk mendapatkan parent GUI yang paling selamat.
--- Keutamaan: gethui() > syn.protect_gui() > Fallback (cari/cipta GUI rawak)
+-- Keutamaan: gethui() > syn.protect_gui()
 local function getSafeCoreGuiParent()
     -- 1. Cuba gunakan gethui() (kaedah paling selamat dan moden)
     if gethui then
@@ -39,26 +39,9 @@ local function getSafeCoreGuiParent()
         return protectedGui
     end
 
-    -- 3. Jika kedua-duanya gagal, gunakan kaedah fallback (cari atau cipta GUI rawak)
-    warn("⚠️ gethui() atau syn.protect_gui() tidak dijumpai. Menggunakan kaedah fallback.")
-    for _, child in ipairs(CoreGui:GetChildren()) do
-        if child:IsA("ScreenGui") and string.match(child.Name, "^%x+$") and #child.Name > 30 then
-            print("✅ Menggunakan ScreenGui sedia ada sebagai fallback.")
-            return child
-        end
-    end
-
-    warn("⚠️ Tidak menjumpai CoreGui yang selamat. Mencipta yang baharu dengan nama rawak.")
-    local randomName = ""
-    for _ = 1, 64 do
-        randomName ..= string.format("%x", math.random(0, 15))
-    end
-    local safeGui = Instance.new("ScreenGui")
-    safeGui.Name = randomName
-    safeGui.ResetOnSpawn = false
-    safeGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    safeGui.Parent = CoreGui
-    return safeGui
+    -- Jika kedua-duanya gagal, kembalikan CoreGui sebagai fallback
+    warn("⚠️ gethui() atau syn.protect_gui() tidak dijumpai. Menggunakan CoreGui sebagai fallback.")
+    return CoreGui
 end
 
 -- ==================== CONFIG SAVE SYSTEM ====================

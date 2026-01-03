@@ -1,9 +1,9 @@
 --[[
-    ARCADE UI LIBRARY (With Config System + Notification System + Integrated Utility)
+    NIGHTMARE LIBRARY (With Config System + Notification System + Integrated Utility)
     Converted by shadow
 ]]
 
-local ArcadeUILib = {}
+local Nightmare = {}
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
@@ -13,7 +13,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- ==================== CONFIG SAVE SYSTEM ====================
 local ConfigSystem = {}
-ConfigSystem.ConfigFile = "ArcadeUI_Config.json"
+ConfigSystem.ConfigFile = "Nightmare_Config.json"
 
 -- Default config
 ConfigSystem.DefaultConfig = {}
@@ -28,14 +28,14 @@ function ConfigSystem:Load()
         end)
         
         if success and result then
-            print("✅ ArcadeUI Config loaded!")
+            print("✅ Nightmare Config loaded!")
             return result
         else
             warn("⚠️ Failed to load config, using defaults")
             return self.DefaultConfig
         end
     else
-        print("📝 No ArcadeUI config file found, creating new one...")
+        print("📝 No Nightmare config file found, creating new one...")
         return self.DefaultConfig
     end
 end
@@ -70,10 +70,10 @@ local function createNotificationGui()
     if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
     
     NotificationGui = Instance.new("ScreenGui")
-    NotificationGui.Name = "ArcadeNotificationGui"
+    NotificationGui.Name = "NightmareNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = gethui() -- Diubah dari PlayerGui ke gethui()
+    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -237,13 +237,13 @@ local function smartInteract(number)
     local targetPlot = getClosestPlot()
     
     if not targetPlot then
-        ArcadeUILib:Notify("No plot nearby!", false)
+        Nightmare:Notify("No plot nearby!", false)
         return
     end
     
     local unlockFolder = targetPlot:FindFirstChild("Unlock")
     if not unlockFolder then
-        ArcadeUILib:Notify("No unlock folder found!", false)
+        Nightmare:Notify("No unlock folder found!", false)
         return
     end
     
@@ -269,7 +269,7 @@ local function smartInteract(number)
     end)
     
     if number > #unlockItems then
-        ArcadeUILib:Notify("Floor " .. number .. " not found!", false)
+        Nightmare:Notify("Floor " .. number .. " not found!", false)
         return
     end
     
@@ -279,7 +279,7 @@ local function smartInteract(number)
     findPrompts(targetFloor, prompts)
     
     if #prompts == 0 then
-        ArcadeUILib:Notify("No prompts found on floor " .. number, false)
+        Nightmare:Notify("No prompts found on floor " .. number, false)
         return
     end
     
@@ -287,7 +287,7 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    ArcadeUILib:Notify("Unlocked Floor " .. number, false)
+    Nightmare:Notify("Unlocked Floor " .. number, false)
 end
 
 local function createUnlockNearestUI()
@@ -296,10 +296,10 @@ local function createUnlockNearestUI()
     end
     
     local unlockGui = Instance.new("ScreenGui")
-    unlockGui.Name = "UnlockBaseUI"
+    unlockGui.Name = "UnlockBase" -- <-- DITUKAR: Buang "UI"
     unlockGui.ResetOnSpawn = false
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    unlockGui.Parent = gethui() -- Diubah dari game.CoreGui ke gethui()
+    unlockGui.Parent = game.CoreGui
     
     local unlockMainFrame = Instance.new("Frame")
     unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
@@ -365,14 +365,14 @@ local function createUnlockNearestUI()
     createFloorButton(3, 130)
     
     unlockNearestUI = unlockGui
-    print("✅ Unlock Nearest UI Created")
+    print("✅ Unlock Nearest Created")
 end
 
 local function destroyUnlockNearestUI()
     if unlockNearestUI then
         unlockNearestUI:Destroy()
         unlockNearestUI = nil
-        print("❌ Unlock Nearest UI Destroyed")
+        print("❌ Unlock Nearest Destroyed")
     end
 end
 
@@ -385,21 +385,21 @@ local ScrollFrame
 local ListLayout
 
 -- ==================== CREATE UI ====================
-function ArcadeUILib:CreateUI()
+function Nightmare:CreateUI()
     -- Load config awal-awal
     self.Config = ConfigSystem:Load()
 
     -- Cleanup
-    if gethui():FindFirstChild("ArcadeUI") then -- Diubah dari game.CoreGui ke gethui()
-        gethui():FindFirstChild("ArcadeUI"):Destroy() -- Diubah dari game.CoreGui ke gethui()
+    if game.CoreGui:FindFirstChild("Nightmare") then
+        game.CoreGui:FindFirstChild("Nightmare"):Destroy()
     end
 
     -- ScreenGui
     ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ArcadeUI"
+    ScreenGui.Name = "Nightmare"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = gethui() -- Diubah dari game.CoreGui ke gethui()
+    ScreenGui.Parent = game.CoreGui
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")
@@ -487,12 +487,12 @@ function ArcadeUILib:CreateUI()
     utilityStroke.Thickness = 1
     utilityStroke.Parent = UtilityFrame
 
-    -- Utility Title (TEKS DITUKAR)
+    -- Utility Title
     local utilityTitle = Instance.new("TextLabel")
     utilityTitle.Size = UDim2.new(1, 0, 0, 40)
     utilityTitle.Position = UDim2.new(0, 0, 0, 5)
     utilityTitle.BackgroundTransparency = 1
-    utilityTitle.Text = "Utility" -- <-- DITUKAR DI SINI
+    utilityTitle.Text = "Utility"
     utilityTitle.TextColor3 = Color3.fromRGB(139, 0, 0)
     utilityTitle.TextSize = 15
     utilityTitle.Font = Enum.Font.Arcade
@@ -636,7 +636,7 @@ function ArcadeUILib:CreateUI()
     end
 
     -- Create the two utility toggles here
-    createIntegratedUtilityToggle("Hide Skin", "Arcade_Utility_HideSkin", function(state)
+    createIntegratedUtilityToggle("Hide Skin", "Nightmare_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
             self:Notify("Hide Skin Enabled!")
@@ -646,24 +646,24 @@ function ArcadeUILib:CreateUI()
         end
     end)
 
-    createIntegratedUtilityToggle("Unlock Nearest", "Arcade_Utility_UnlockNearest", function(state)
+    createIntegratedUtilityToggle("Unlock Nearest", "Nightmare_Utility_UnlockNearest", function(state)
         if state then
             createUnlockNearestUI()
-            self:Notify("Unlock Nearest UI Enabled!")
+            self:Notify("Unlock Nearest Enabled!")
         else
             destroyUnlockNearestUI()
-            self:Notify("Unlock Nearest UI Disabled!")
+            self:Notify("Unlock Nearest Disabled!")
         end
     end)
 
     -- Create Notification Gui at the end
     createNotificationGui()
 
-    print("✅ Arcade UI Created Successfully!")
+    print("✅ Nightmare Created Successfully!")
 end
 
 -- Fungsi utama untuk menunjukkan notifikasi
-function ArcadeUILib:Notify(text, soundId)
+function Nightmare:Notify(text, soundId)
     if not NotificationGui then
         createNotificationGui()
     end
@@ -736,14 +736,14 @@ function ArcadeUILib:Notify(text, soundId)
 end
 
 -- ==================== TOGGLE CREATION FUNCTION ====================
-function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
+function Nightmare:AddToggleRow(text1, callback1, text2, callback2)
     local rowFrame = Instance.new("Frame")
     rowFrame.Size = UDim2.new(1, 0, 0, 35)
     rowFrame.BackgroundTransparency = 1
     rowFrame.Parent = ScrollFrame
 
     local function createSingleToggle(text, callback, position)
-        local configKey = "Arcade_" .. text
+        local configKey = "Nightmare_" .. text
         local toggle = Instance.new("TextButton")
         toggle.Size = UDim2.new(0, 100, 0, 32)
         toggle.Position = position
@@ -792,4 +792,4 @@ function ArcadeUILib:AddToggleRow(text1, callback1, text2, callback2)
     end
 end
 
-return ArcadeUILib
+return Nightmare

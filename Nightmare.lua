@@ -9,7 +9,33 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- ==================== ANTI-DETECTION PARENT ====================
+-- Fungsi untuk mencari atau mencipta 'ScreenGui' yang selamat untuk dijadikan parent UI.
+-- Ini mengelakkan penambahan 'ScreenGui' baharu terus ke 'CoreGui' yang mudah dikesan.
+local function getSafeCoreGuiParent()
+    -- Cari 'ScreenGui' sedia ada dengan nama yang kelihatan seperti hash (rawak dan panjang)
+    for _, child in ipairs(CoreGui:GetChildren()) do
+        if child:IsA("ScreenGui") and string.match(child.Name, "^%x+$") and #child.Name > 30 then
+            return child
+        end
+    end
+
+    -- Jika tidak menjumpai, cipta satu baru dengan nama rawak sebagai langkah keselamatan
+    warn("⚠️ Tidak menjumpai CoreGui yang selamat. Mencipta yang baharu dengan nama rawak.")
+    local randomName = ""
+    for _ = 1, 64 do
+        randomName ..= string.format("%x", math.random(0, 15))
+    end
+    local safeGui = Instance.new("ScreenGui")
+    safeGui.Name = randomName
+    safeGui.ResetOnSpawn = false
+    safeGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    safeGui.Parent = CoreGui
+    return safeGui
+end
 
 -- ==================== CONFIG SAVE SYSTEM ====================
 local ConfigSystem = {}
@@ -69,11 +95,14 @@ local DEFAULT_NOTIFICATION_SOUND_ID = 3398620867 -- ID untuk bunyi 'ding' defaul
 local function createNotificationGui()
     if NotificationGui then return end -- Jika sudah wujud, jangan cipta lagi
     
+    -- Dapatkan parent yang selamat untuk notifikasi juga
+    local safeParent = getSafeCoreGuiParent()
+    
     NotificationGui = Instance.new("ScreenGui")
     NotificationGui.Name = "NightmareNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    NotificationGui.Parent = safeParent -- <-- DITUKAR: Parent ke safeParent
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -187,7 +216,7 @@ local function disableAntiLag()
 end
 
 -- ==================== UI VARIABLES ====================
-local ScreenGui
+local ScreenGui -- Pembolehubah untuk disimpan di luar fungsi
 local MainFrame
 local ToggleButton
 local ScrollFrame
@@ -198,17 +227,21 @@ function Nightmare:CreateUI()
     -- Load config awal-awal
     self.Config = ConfigSystem:Load()
 
-    -- Cleanup
-    if game.CoreGui:FindFirstChild("Nightmare") then
-        game.CoreGui:FindFirstChild("Nightmare"):Destroy()
+    -- Cleanup: Hapus UI lama jika wujud
+    if ScreenGui then
+        ScreenGui:Destroy()
+        ScreenGui = nil
     end
+
+    -- Dapatkan parent yang selamat
+    local safeParent = getSafeCoreGuiParent()
 
     -- ScreenGui
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "Nightmare"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game.CoreGui
+    ScreenGui.Parent = safeParent -- <-- DITUKAR: Parent ke safeParent, bukan CoreGui
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")

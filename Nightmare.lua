@@ -12,18 +12,42 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== ANTI-DETECTION PARENT ====================
--- Fungsi untuk mencari atau mencipta 'ScreenGui' yang selamat untuk dijadikan parent UI.
--- Ini mengelakkan penambahan 'ScreenGui' baharu terus ke 'CoreGui' yang mudah dikesan.
+-- ==================== ANTI-DETECTION PARENT (INFINITE YIELD METHOD) ====================
+-- Fungsi untuk mendapatkan parent GUI yang paling selamat.
+-- Keutamaan: gethui() > syn.protect_gui() > Fallback (cari/cipta GUI rawak)
 local function getSafeCoreGuiParent()
-    -- Cari 'ScreenGui' sedia ada dengan nama yang kelihatan seperti hash (rawak dan panjang)
+    -- 1. Cuba gunakan gethui() (kaedah paling selamat dan moden)
+    if gethui then
+        local success, result = pcall(function()
+            return gethui()
+        end)
+        if success and result then
+            print("✅ Menggunakan gethui() untuk parent GUI.")
+            return result
+        end
+    end
+
+    -- 2. Jika gethui gagal, Cuba gunakan syn.protect_gui()
+    if syn and syn.protect_gui then
+        print("✅ Menggunakan syn.protect_gui() untuk parent GUI.")
+        local protectedGui = Instance.new("ScreenGui")
+        protectedGui.Name = "Nightmare_Protected"
+        protectedGui.ResetOnSpawn = false
+        protectedGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        syn.protect_gui(protectedGui)
+        protectedGui.Parent = CoreGui
+        return protectedGui
+    end
+
+    -- 3. Jika kedua-duanya gagal, gunakan kaedah fallback (cari atau cipta GUI rawak)
+    warn("⚠️ gethui() atau syn.protect_gui() tidak dijumpai. Menggunakan kaedah fallback.")
     for _, child in ipairs(CoreGui:GetChildren()) do
         if child:IsA("ScreenGui") and string.match(child.Name, "^%x+$") and #child.Name > 30 then
+            print("✅ Menggunakan ScreenGui sedia ada sebagai fallback.")
             return child
         end
     end
 
-    -- Jika tidak menjumpai, cipta satu baru dengan nama rawak sebagai langkah keselamatan
     warn("⚠️ Tidak menjumpai CoreGui yang selamat. Mencipta yang baharu dengan nama rawak.")
     local randomName = ""
     for _ = 1, 64 do

@@ -22,14 +22,12 @@ local function getSafeCoreGuiParent()
             return gethui()
         end)
         if success and result then
-            print("✅ Menggunakan gethui() untuk parent GUI.")
             return result
         end
     end
 
     -- 2. Jika gethui gagal, Cuba gunakan syn.protect_gui()
     if syn and syn.protect_gui then
-        print("✅ Menggunakan syn.protect_gui() untuk parent GUI.")
         local protectedGui = Instance.new("ScreenGui")
         protectedGui.Name = "Nightmare_Protected"
         protectedGui.ResetOnSpawn = false
@@ -40,7 +38,6 @@ local function getSafeCoreGuiParent()
     end
 
     -- Jika kedua-duanya gagal, kembalikan CoreGui sebagai fallback
-    warn("⚠️ gethui() atau syn.protect_gui() tidak dijumpai. Menggunakan CoreGui sebagai fallback.")
     return CoreGui
 end
 
@@ -61,14 +58,12 @@ function ConfigSystem:Load()
         end)
         
         if success and result then
-            print("✅ Nightmare Config loaded!")
             return result
         else
             warn("⚠️ Failed to load config, using defaults")
             return self.DefaultConfig
         end
     else
-        print("📝 No Nightmare config file found, creating new one...")
         return self.DefaultConfig
     end
 end
@@ -109,7 +104,7 @@ local function createNotificationGui()
     NotificationGui.Name = "NightmareNotificationGui"
     NotificationGui.ResetOnSpawn = false
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    NotificationGui.Parent = safeParent -- <-- DITUKAR: Parent ke safeParent
+    NotificationGui.Parent = safeParent
 end
 
 -- ==================== UTILITY SYSTEM VARIABLES ====================
@@ -121,6 +116,9 @@ local UtilityListLayout = nil
 local antiLagRunning = false
 local antiLagConnections = {}
 local cleanedCharacters = {}
+
+-- Unlock Nearest Variables
+local unlockNearestUI = nil
 
 -- ==================== UTILITY FUNCTIONS ====================
 local function destroyAllEquippableItems(character)
@@ -174,7 +172,6 @@ end
 
 local function enableAntiLag()
     if antiLagRunning then 
-        warn("[Anti-Lag] Already running!")
         return false
     end
     
@@ -205,21 +202,210 @@ local function enableAntiLag()
         end
     end))
     
-    print("✅ Anti-Lag Enabled")
     return true
 end
 
 local function disableAntiLag()
     if not antiLagRunning then 
-        warn("[Anti-Lag] Not running!")
         return false
     end
     
     antiLagRunning = false
     antiLagDisconnectAll()
     
-    print("❌ Anti-Lag Disabled")
     return true
+end
+
+-- Function to find the closest plot to the player
+local function getClosestPlot()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local rootPart = character.HumanoidRootPart
+    
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return nil end
+    
+    local closestPlot = nil
+    local minDistance = 25
+    
+    for _, plot in pairs(plots:GetChildren()) do
+        local plotPos = nil
+        if plot.PrimaryPart then
+            plotPos = plot.PrimaryPart.Position
+        elseif plot:FindFirstChild("Base") then
+            plotPos = plot.Base.Position
+        elseif plot:FindFirstChild("Floor") then
+            plotPos = plot.Floor.Position
+        else
+            plotPos = plot:GetPivot().Position
+        end
+        
+        if plotPos then
+            local distance = (rootPart.Position - plotPos).Magnitude
+            if distance < minDistance then
+                closestPlot = plot
+                minDistance = distance
+            end
+        end
+    end
+    
+    return closestPlot
+end
+
+-- Function to recursively find all proximity prompts in an object
+local function findPrompts(instance, found)
+    for _, child in pairs(instance:GetChildren()) do
+        if child:IsA("ProximityPrompt") then
+            table.insert(found, child)
+        end
+        findPrompts(child, found)
+    end
+end
+
+-- Function to interact with a specific floor number
+local function smartInteract(number)
+    local targetPlot = getClosestPlot()
+    
+    if not targetPlot then
+        Nightmare:Notify("No plot nearby!", false)
+        return
+    end
+    
+    local unlockFolder = targetPlot:FindFirstChild("Unlock")
+    if not unlockFolder then
+        Nightmare:Notify("No unlock folder found!", false)
+        return
+    end
+    
+    local unlockItems = {}
+    for _, item in pairs(unlockFolder:GetChildren()) do
+        local pos = nil
+        if item:IsA("Model") then
+            pos = item:GetPivot().Position
+        elseif item:IsA("BasePart") then
+            pos = item.Position
+        end
+        
+        if pos then
+            table.insert(unlockItems, {
+                Object = item,
+                Height = pos.Y
+            })
+        end
+    end
+    
+    table.sort(unlockItems, function(a, b)
+        return a.Height < b.Height
+    end)
+    
+    if number > #unlockItems then
+        Nightmare:Notify("Floor " .. number .. " not found!", false)
+        return
+    end
+    
+    local targetFloor = unlockItems[number].Object
+    
+    local prompts = {}
+    findPrompts(targetFloor, prompts)
+    
+    if #prompts == 0 then
+        Nightmare:Notify("No prompts found on floor " .. number, false)
+        return
+    end
+    
+    for _, prompt in pairs(prompts) do
+        fireproximityprompt(prompt)
+    end
+    
+    Nightmare:Notify("Unlocked Floor " .. number, false)
+end
+
+-- Function to create the Unlock Nearest UI
+local function createUnlockNearestUI()
+    if unlockNearestUI then
+        unlockNearestUI:Destroy()
+    end
+    
+    local safeParent = getSafeCoreGuiParent()
+    
+    local unlockGui = Instance.new("ScreenGui")
+    unlockGui.Name = "UnlockBaseUI"
+    unlockGui.ResetOnSpawn = false
+    unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    unlockGui.Parent = safeParent
+    
+    local unlockMainFrame = Instance.new("Frame")
+    unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
+    unlockMainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
+    unlockMainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    unlockMainFrame.BackgroundTransparency = 0.1
+    unlockMainFrame.BorderSizePixel = 0
+    unlockMainFrame.Active = true
+    unlockMainFrame.Draggable = true
+    unlockMainFrame.Parent = unlockGui
+    
+    local unlockCorner = Instance.new("UICorner")
+    unlockCorner.CornerRadius = UDim.new(0, 15)
+    unlockCorner.Parent = unlockMainFrame
+    
+    local unlockStroke = Instance.new("UIStroke")
+    unlockStroke.Color = Color3.fromRGB(255, 50, 50)
+    unlockStroke.Thickness = 2
+    unlockStroke.Parent = unlockMainFrame
+    
+    local function createFloorButton(floorNum, yPos)
+        local floorButton = Instance.new("TextButton")
+        floorButton.Size = UDim2.new(0, 75, 0, 50)
+        floorButton.Position = UDim2.new(0.5, -37.5, 0, yPos)
+        floorButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        floorButton.BorderSizePixel = 0
+        floorButton.Text = floorNum .. " Floor"
+        floorButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+        floorButton.TextSize = 18
+        floorButton.Font = Enum.Font.Arcade
+        floorButton.Parent = unlockMainFrame
+        
+        local floorCorner = Instance.new("UICorner")
+        floorCorner.CornerRadius = UDim.new(0, 10)
+        floorCorner.Parent = floorButton
+        
+        floorButton.MouseButton1Click:Connect(function()
+            local originalColor = floorButton.BackgroundColor3
+            floorButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = originalColor
+            }):Play()
+            
+            smartInteract(floorNum)
+        end)
+        
+        floorButton.MouseEnter:Connect(function()
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+            }):Play()
+        end)
+        
+        floorButton.MouseLeave:Connect(function()
+            TweenService:Create(floorButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            }):Play()
+        end)
+    end
+    
+    createFloorButton(1, 10)
+    createFloorButton(2, 70)
+    createFloorButton(3, 130)
+    
+    unlockNearestUI = unlockGui
+end
+
+-- Function to destroy the Unlock Nearest UI
+local function destroyUnlockNearestUI()
+    if unlockNearestUI then
+        unlockNearestUI:Destroy()
+        unlockNearestUI = nil
+    end
 end
 
 -- ==================== UI VARIABLES ====================
@@ -248,7 +434,7 @@ function Nightmare:CreateUI()
     ScreenGui.Name = "Nightmare"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = safeParent -- <-- DITUKAR: Parent ke safeParent, bukan CoreGui
+    ScreenGui.Parent = safeParent
 
     -- Toggle Button
     ToggleButton = Instance.new("ImageButton")
@@ -488,10 +674,17 @@ function Nightmare:CreateUI()
     createIntegratedUtilityToggle("Hide Skin", "Nightmare_Utility_HideSkin", function(state)
         if state then
             enableAntiLag()
-            self:Notify("Hide Skin Enabled!")
         else
             disableAntiLag()
-            self:Notify("Hide Skin Disabled!")
+        end
+    end)
+    
+    -- Create the Unlock Nearest toggle
+    createIntegratedUtilityToggle("Unlock Nearest", "Nightmare_Utility_UnlockNearest", function(state)
+        if state then
+            createUnlockNearestUI()
+        else
+            destroyUnlockNearestUI()
         end
     end)
 

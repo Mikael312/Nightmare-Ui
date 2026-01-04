@@ -226,7 +226,7 @@ local function getClosestPlot()
     if not plots then return nil end
     
     local closestPlot = nil
-    local minDistance = 25
+    local minDistance = 35
     
     for _, plot in pairs(plots:GetChildren()) do
         local plotPos = nil

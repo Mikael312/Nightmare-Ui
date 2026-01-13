@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==================== ANTI-DETECTION PARENT (INFINITE YIELD METHOD) ====================
@@ -119,6 +120,12 @@ local cleanedCharacters = {}
 
 -- Unlock Nearest Variables
 local unlockNearestUI = nil
+
+-- ==================== ANTI RAGDOLL VARIABLES ====================
+local isAntiRagdollEnabled = false
+local antiRagdollConnections = {}
+local humanoidWatchConnection, ragdollTimer
+local ragdollActive = false
 
 -- ==================== UTILITY FUNCTIONS ====================
 local function destroyAllEquippableItems(character)
@@ -407,6 +414,161 @@ local function destroyUnlockNearestUI()
         unlockNearestUI = nil
     end
 end
+
+-- ==================== ANTI RAGDOLL FUNCTIONS ====================
+local function stopRagdoll()
+    if not ragdollActive then return end
+    
+    ragdollActive = false
+    local char, hum, root = LocalPlayer.Character, LocalPlayer.Character:FindFirstChildOfClass("Humanoid"), LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not hum or not root then return end
+    
+    -- Paksa watak untuk mula bangun
+    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    
+    -- Kembalikan kawalan fizik kepada humanoid
+    hum.PlatformStand = false
+    
+    -- Pastikan root part tidak terlekat di bawah tanah
+    root.CanCollide = true
+    if root.Anchored then root.Anchored = false end
+    
+    -- Musnahkan sebarang constraint yang mungkin ditambah oleh sistem ragdoll
+    for _, part in char:GetChildren() do
+        if part:IsA("BasePart") then
+            for _, c in part:GetChildren() do
+                if c:IsA("BallSocketConstraint") or c:IsA("HingeConstraint") then
+                    c:Destroy()
+                end
+            end
+            -- Pastikan sendi motor (Motor6D) untuk anggota badan diaktifkan semula
+            local motor = part:FindFirstChildWhichIsA("Motor6D")
+            if motor then
+                motor.Enabled = true
+            end
+        end
+    end
+    
+    -- Reset halaju untuk mengelakkan terlempar selepas bangun
+    root.Velocity = Vector3.new(0, math.min(root.Velocity.Y, 0), 0)
+    root.RotVelocity = Vector3.new(0, 0, 0)
+    
+    -- Pastikan kamera mengikuti humanoid semula
+    workspace.CurrentCamera.CameraSubject = hum
+end
+
+local function startRagdollTimer()
+    -- Hentikan timer sebelumnya jika ada
+    if ragdollTimer then ragdollTimer:Disconnect() end
+    
+    ragdollActive = true
+    -- Cipta timer yang sangat singkat untuk memanggil stopRagdoll pada frame seterusnya
+    ragdollTimer = RunService.Heartbeat:Connect(function()
+        ragdollTimer:Disconnect()
+        ragdollTimer = nil
+        stopRagdoll()
+    end)
+end
+
+local function watchHumanoidStates(char)
+    local hum = char:WaitForChild("Humanoid")
+    
+    -- Putuskan sambungan lama jika ada
+    if humanoidWatchConnection then humanoidWatchConnection:Disconnect() end
+    
+    humanoidWatchConnection = hum.StateChanged:Connect(function(_, newState)
+        -- Jika anti-ragdoll tidak dihidupkan, abaikan
+        if not isAntiRagdollEnabled then return end
+        
+        -- Periksa jika watak memasuki keadaan ragdoll
+        if newState == Enum.HumanoidStateType.FallingDown or newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.Physics then
+            -- Jika belum aktif, mulakan proses pencegahan
+            if not ragdollActive then
+                hum.PlatformStand = true -- Hentikan kawalan humanoid sementara
+                startRagdollTimer() -- Mulakan timer untuk bangun
+            end
+        -- Periksa jika watak sudah bangun atau berjalan
+        elseif newState == Enum.HumanoidStateType.GettingUp or newState == Enum.HumanoidStateType.Running or newState == Enum.HumanoidStateType.RunningNoPhysics then
+            hum.PlatformStand = false -- Kembalikan kawalan
+            if ragdollActive then
+                stopRagdoll() -- Pastikan semua sisa-sisa ragdoll dibersihkan
+            end
+        end
+    end)
+end
+
+local function setupAntiRagdollCharacter(char)
+    -- Reset keadaan
+    ragdollActive = false
+    if ragdollTimer then ragdollTimer:Disconnect(); ragdollTimer = nil end
+    
+    -- Mula memantau state humanoid watak baru
+    char:WaitForChild("Humanoid")
+    char:WaitForChild("HumanoidRootPart")
+    watchHumanoidStates(char)
+end
+
+local function startAntiRagdoll()
+    isAntiRagdollEnabled = true
+    
+    -- Bersihkan sambungan lama
+    for _, conn in pairs(antiRagdollConnections) do
+        if conn then conn:Disconnect() end
+    end
+    table.clear(antiRagdollConnections)
+    
+    if humanoidWatchConnection then
+        humanoidWatchConnection:Disconnect()
+        humanoidWatchConnection = nil
+    end
+    
+    -- Pasang pada watak semasa
+    if LocalPlayer.Character then
+        setupAntiRagdollCharacter(LocalPlayer.Character)
+    end
+    
+    -- Pasang pada watak akan datang (respawn)
+    table.insert(antiRagdollConnections, LocalPlayer.CharacterAdded:Connect(setupAntiRagdollCharacter))
+end
+
+local function stopAntiRagdoll()
+    isAntiRagdollEnabled = false
+    ragdollActive = false
+    
+    -- Hentikan semua proses aktif
+    if ragdollTimer then
+        ragdollTimer:Disconnect()
+        ragdollTimer = nil
+    end
+    
+    -- Putuskan semua sambungan
+    for _, conn in pairs(antiRagdollConnections) do
+        if conn then conn:Disconnect() end
+    end
+    table.clear(antiRagdollConnections)
+    
+    if humanoidWatchConnection then
+        humanoidWatchConnection:Disconnect()
+        humanoidWatchConnection = nil
+    end
+end
+
+local function toggleAntiRagdoll(state)
+    if state then
+        startAntiRagdoll()
+    else
+        stopAntiRagdoll()
+    end
+end
+
+-- Sambungan event untuk memuat semula fungsi jika watak respawn
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    if isAntiRagdollEnabled then
+        task.wait(0.5) -- Tunggu sebentar untuk watak dimuatkan sepenuhnya
+        setupAntiRagdollCharacter(newCharacter)
+    end
+end)
 
 -- ==================== TOGGLE CREATION FUNCTIONS ====================
 -- Function to create a toggle button with the new design
@@ -721,6 +883,11 @@ function Nightmare:CreateUI()
         else
             destroyUnlockNearestUI()
         end
+    end)
+    
+    -- Create the Anti Knockback toggle
+    createIntegratedUtilityToggle("Anti Knockback", "Nightmare_Utility_AntiKnockback", function(state)
+        toggleAntiRagdoll(state)
     end)
 
     -- Create Notification Gui at the end

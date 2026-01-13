@@ -226,7 +226,7 @@ local function getClosestPlot()
     if not plots then return nil end
     
     local closestPlot = nil
-    local minDistance = 35
+    local minDistance = 25
     
     for _, plot in pairs(plots:GetChildren()) do
         local plotPos = nil
@@ -408,6 +408,59 @@ local function destroyUnlockNearestUI()
     end
 end
 
+-- ==================== TOGGLE CREATION FUNCTIONS ====================
+-- Function to create a toggle button with the new design
+local function createToggleButton(parent, name, text, position, size)
+    -- Mencipta TextButton utama
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Size = size or UDim2.new(0, 160, 0, 32) -- Saiz default disesuaikan
+    button.Position = position
+    button.BackgroundColor3 = Color3.fromRGB(80, 0, 0) -- Warna latar belakang OFF (Merah Gelap)
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 13
+    button.Font = Enum.Font.Arcade -- DITUKAR BALIK KE ARCADE
+    button.AutoButtonColor = false -- Mematikan kesan butang default
+    button.Parent = parent
+    
+    -- Mencipta bucu bulat (Rounded Corners)
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = button
+    
+    -- Mencipta garis luar (Outline)
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Color = Color3.fromRGB(150, 0, 0) -- Warna garis luar OFF (Merah Sederhana)
+    btnStroke.Thickness = 0.5 -- Ketebalan garis luar OFF
+    btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    btnStroke.Parent = button
+    
+    return button
+end
+
+-- Function to set the toggle state with the new design
+local function setToggleState(button, enabled)
+    local btnStroke = button:FindFirstChildOfClass("UIStroke")
+    
+    if enabled then
+        -- on
+        button.BackgroundColor3 = Color3.fromRGB(200, 30, 30) -- Warna latar belakang ON (Merah Cerah)
+        if btnStroke then
+            btnStroke.Color = Color3.fromRGB(255, 60, 60) -- Warna garis luar ON (Merah Terang)
+            btnStroke.Thickness = 1.0 -- Ketebalan garis luar ON (Lebih Tebal)
+        end
+    else
+        -- off
+        button.BackgroundColor3 = Color3.fromRGB(80, 0, 0) -- Warna latar belakang OFF (Merah Gelap)
+        if btnStroke then
+            btnStroke.Color = Color3.fromRGB(150, 0, 0) -- Warna garis luar OFF (Merah Sederhana)
+            btnStroke.Thickness = 0.5 -- Ketebalan garis luar OFF (Nipis)
+        end
+    end
+end
+
 -- ==================== UI VARIABLES ====================
 local ScreenGui -- Pembolehubah untuk disimpan di luar fungsi
 local MainFrame
@@ -503,8 +556,8 @@ function Nightmare:CreateUI()
 
     -- ==================== UTILITY UI ====================
     UtilityFrame = Instance.new("Frame")
-    UtilityFrame.Size = UDim2.new(0, 220, 0, 300)
-    UtilityFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
+    UtilityFrame.Size = UDim2.new(0, 180, 0, 250) -- DIPERKECIL
+    UtilityFrame.Position = UDim2.new(0.5, -90, 0.5, -125) -- DISESUAIKAN
     UtilityFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     UtilityFrame.BackgroundTransparency = 0.1
     UtilityFrame.BorderSizePixel = 0
@@ -624,43 +677,25 @@ function Nightmare:CreateUI()
 
     -- ==================== CREATE UTILITY TOGGLES (DIINTEGRASIKAN) ====================
     local function createIntegratedUtilityToggle(toggleName, configKey, callback)
-        local utilityToggle = Instance.new("TextButton")
-        utilityToggle.Name = "UtilityToggle_" .. toggleName
-        utilityToggle.Size = UDim2.new(1, -10, 0, 32)
-        utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-        utilityToggle.BorderSizePixel = 0
-        utilityToggle.Text = toggleName
-        utilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        utilityToggle.TextSize = 12
-        utilityToggle.Font = Enum.Font.Arcade
-        utilityToggle.Parent = UtilityScrollFrame
-        
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 8)
-        btnCorner.Parent = utilityToggle
-        
-        local btnStroke = Instance.new("UIStroke")
-        btnStroke.Color = Color3.fromRGB(255, 50, 50)
-        btnStroke.Thickness = 1
-        btnStroke.Parent = utilityToggle
+        -- Create toggle using the new design
+        local utilityToggle = createToggleButton(
+            UtilityScrollFrame, 
+            "UtilityToggle_" .. toggleName, 
+            toggleName, 
+            UDim2.new(0, 10, 0, 0), 
+            UDim2.new(0, 160, 0, 32)
+        )
         
         -- Load initial state from config
         local isToggled = self.Config[configKey] or false
-        if isToggled then
-            utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-        end
+        setToggleState(utilityToggle, isToggled)
 
         -- Call callback on initial load
         if callback then callback(isToggled) end
         
         utilityToggle.MouseButton1Click:Connect(function()
             isToggled = not isToggled
-            
-            if isToggled then
-                utilityToggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-            else
-                utilityToggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-            end
+            setToggleState(utilityToggle, isToggled)
             
             -- Save state to config
             ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
@@ -776,40 +811,24 @@ function Nightmare:AddToggleRow(text1, callback1, text2, callback2)
 
     local function createSingleToggle(text, callback, position)
         local configKey = "Nightmare_" .. text
-        local toggle = Instance.new("TextButton")
-        toggle.Size = UDim2.new(0, 100, 0, 32)
-        toggle.Position = position
-        toggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-        toggle.BorderSizePixel = 0
-        toggle.Text = text
-        toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggle.TextSize = 13
-        toggle.Font = Enum.Font.Arcade
-        toggle.Parent = rowFrame
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = toggle
-
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(255, 50, 50)
-        stroke.Thickness = 1
-        stroke.Parent = toggle
+        
+        -- Create toggle using the new design
+        local toggle = createToggleButton(
+            rowFrame, 
+            "Toggle_" .. text, 
+            text, 
+            position, 
+            UDim2.new(0, 100, 0, 32)
+        )
 
         local isToggled = self.Config[configKey] or false
-        if isToggled then
-            toggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-        end
+        setToggleState(toggle, isToggled)
 
         if callback then callback(isToggled) end
 
         toggle.MouseButton1Click:Connect(function()
             isToggled = not isToggled
-            if isToggled then
-                toggle.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-            else
-                toggle.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-            end
+            setToggleState(toggle, isToggled)
 
             ConfigSystem:UpdateSetting(self.Config, configKey, isToggled)
 

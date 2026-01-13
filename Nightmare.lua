@@ -127,6 +127,10 @@ local antiRagdollConnections = {}
 local humanoidWatchConnection, ragdollTimer
 local ragdollActive = false
 
+-- ==================== NEAREST UI VARIABLES ====================
+local nearestUI = nil
+local nearestStealConnection = nil
+
 -- ==================== UTILITY FUNCTIONS ====================
 local function destroyAllEquippableItems(character)
     if not character then return end
@@ -570,6 +574,546 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     end
 end)
 
+-- ==================== NEAREST UI FUNCTIONS ====================
+local function createNearestUI()
+    if nearestUI then
+        nearestUI:Destroy()
+    end
+    
+    local safeParent = getSafeCoreGuiParent()
+    
+    -- Services
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    
+    -- Variables
+    local allAnimalsCache = {}
+    local PromptMemoryCache = {}
+    local InternalStealCache = {}
+    local AUTO_STEAL_PROX_RADIUS = 35
+    
+    -- MODE: "nearest" or "bestgen"
+    local stealMode = "bestgen"
+    
+    -- Get Packages
+    local Packages = ReplicatedStorage:WaitForChild("Packages")
+    local Datas = ReplicatedStorage:WaitForChild("Datas")
+    local Shared = ReplicatedStorage:WaitForChild("Shared")
+    local Utils = ReplicatedStorage:WaitForChild("Utils")
+    
+    local Synchronizer = require(Packages:WaitForChild("Synchronizer"))
+    local AnimalsData = require(Datas:WaitForChild("Animals"))
+    local RaritiesData = require(Datas:WaitForChild("Rarities"))
+    local AnimalsShared = require(Shared:WaitForChild("Animals"))
+    local NumberUtils = require(Utils:WaitForChild("NumberUtils"))
+    
+    -- Create ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "StealBar"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = safeParent
+    
+    -- Main Frame (280x90 - taller untuk button)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 280, 0, 90)
+    mainFrame.Position = UDim2.new(0.5, -140, 0.15, 0)
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 18)
+    mainCorner.Parent = mainFrame
+    
+    local outerStroke = Instance.new("UIStroke")
+    outerStroke.Color = Color3.fromRGB(220, 50, 50)
+    outerStroke.Thickness = 1.0
+    outerStroke.Transparency = 0
+    outerStroke.Parent = mainFrame
+    
+    -- Title label
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -20, 0, 18)
+    titleLabel.Position = UDim2.new(0, 10, 0, 6)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "WAITING FOR STEAL"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 14
+    titleLabel.Font = Enum.Font.Arcade
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = mainFrame
+    
+    -- Stud label
+    local studLabel = Instance.new("TextLabel")
+    studLabel.Size = UDim2.new(0.35, 0, 0, 16)
+    studLabel.Position = UDim2.new(0.65, 0, 0, 7)
+    studLabel.BackgroundTransparency = 1
+    studLabel.Text = "0.0 studs"
+    studLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    studLabel.TextSize = 10
+    studLabel.Font = Enum.Font.Arcade
+    studLabel.TextXAlignment = Enum.TextXAlignment.Right
+    studLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    studLabel.Parent = mainFrame
+    
+    -- Money label
+    local moneyLabel = Instance.new("TextLabel")
+    moneyLabel.Size = UDim2.new(1, -20, 0, 15)
+    moneyLabel.Position = UDim2.new(0, 10, 0, 24)
+    moneyLabel.BackgroundTransparency = 1
+    moneyLabel.Text = "$0.0M/s"
+    moneyLabel.TextColor3 = Color3.fromRGB(70, 220, 90)
+    moneyLabel.TextSize = 11
+    moneyLabel.Font = Enum.Font.Arcade
+    moneyLabel.TextXAlignment = Enum.TextXAlignment.Center
+    moneyLabel.Parent = mainFrame
+    
+    -- Mode Toggle Button (NEW)
+    local modeButton = Instance.new("TextButton")
+    modeButton.Size = UDim2.new(1, -20, 0, 20)
+    modeButton.Position = UDim2.new(0, 10, 0, 42)
+    modeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
+    modeButton.BorderSizePixel = 0
+    modeButton.Text = "MODE: BEST GEN"
+    modeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    modeButton.TextSize = 10
+    modeButton.Font = Enum.Font.Arcade
+    modeButton.Parent = mainFrame
+    
+    local modeCorner = Instance.new("UICorner")
+    modeCorner.CornerRadius = UDim.new(0, 8)
+    modeCorner.Parent = modeButton
+    
+    local modeStroke = Instance.new("UIStroke")
+    modeStroke.Color = Color3.fromRGB(220, 50, 50)
+    modeStroke.Thickness = 1.0
+    modeStroke.Transparency = 0.3
+    modeStroke.Parent = modeButton
+    
+    -- Progress bar container
+    local barContainer = Instance.new("Frame")
+    barContainer.Size = UDim2.new(1, -20, 0, 12)
+    barContainer.Position = UDim2.new(0, 10, 1, -18)
+    barContainer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    barContainer.BorderSizePixel = 0
+    barContainer.Parent = mainFrame
+    
+    local barCorner = Instance.new("UICorner")
+    barCorner.CornerRadius = UDim.new(0, 6)
+    barCorner.Parent = barContainer
+    
+    local barStroke = Instance.new("UIStroke")
+    barStroke.Color = Color3.fromRGB(40, 40, 40)
+    barStroke.Thickness = 1.0
+    barStroke.Parent = barContainer
+    
+    -- Fill bar
+    local fillBar = Instance.new("Frame")
+    fillBar.Size = UDim2.new(0, 0, 1, 0)
+    fillBar.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+    fillBar.BorderSizePixel = 0
+    fillBar.Parent = barContainer
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 6)
+    fillCorner.Parent = fillBar
+    
+    -- Percent label
+    local percentLabel = Instance.new("TextLabel")
+    percentLabel.Size = UDim2.new(1, 0, 1, 0)
+    percentLabel.BackgroundTransparency = 1
+    percentLabel.Text = ""
+    percentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    percentLabel.TextSize = 8
+    percentLabel.Font = Enum.Font.Arcade
+    percentLabel.ZIndex = 2
+    percentLabel.Parent = barContainer
+    
+    local isAnimating = false
+    
+    local function animateFill()
+        if isAnimating then return end 
+        isAnimating = true
+        
+        local tweenInfo = TweenInfo.new(0.7, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(fillBar, tweenInfo, {Size = UDim2.new(1, 0, 1, 0)})
+        
+        tween:Play()
+        
+        task.spawn(function()
+            for i = 0, 100 do
+                percentLabel.Text = i .. "%"
+                task.wait(0.7 / 100)
+            end
+        end)
+        
+        tween.Completed:Wait()
+        task.wait(0.14)
+        
+        fillBar.Size = UDim2.new(0, 0, 1, 0)
+        percentLabel.Text = ""
+        isAnimating = false
+    end
+    
+    -- Mode Toggle Button Click
+    modeButton.MouseButton1Click:Connect(function()
+        if stealMode == "bestgen" then
+            stealMode = "nearest"
+            modeButton.Text = "MODE: NEAREST"
+            modeButton.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+            modeStroke.Color = Color3.fromRGB(80, 80, 90)
+        else
+            stealMode = "bestgen"
+            modeButton.Text = "MODE: BEST GEN"
+            modeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
+            modeStroke.Color = Color3.fromRGB(220, 50, 50)
+        end
+    end)
+    
+    do
+        local oldInfo
+        oldInfo = hookfunction(debug.info, function(...)
+            local src = oldInfo(1, "s")
+            
+            if src and src:find("Packages.Synchronizer") then
+                return nil
+            end
+            
+            return oldInfo(...)
+        end)
+    end
+    
+    local function isMyBaseAnimal(animalData)
+        if not animalData or not animalData.plot then return false end
+        
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return false end
+        
+        local plot = plots:FindFirstChild(animalData.plot)
+        if not plot then return false end
+        
+        local channel = Synchronizer:Get(plot.Name)
+        if channel then
+            local owner = channel:Get("Owner")
+            if owner then
+                if typeof(owner) == "Instance" and owner:IsA("Player") then
+                    return owner.UserId == LocalPlayer.UserId
+                elseif typeof(owner) == "table" and owner.UserId then
+                    return owner.UserId == LocalPlayer.UserId
+                elseif typeof(owner) == "Instance" then
+                    return owner == LocalPlayer
+                end
+            end
+        end
+        
+        local sign = plot:FindFirstChild("PlotSign")
+        if sign then
+            local yourBase = sign:FindFirstChild("YourBase")
+            if yourBase and yourBase:IsA("BillboardGui") then
+                return yourBase.Enabled == true
+            end
+        end
+        
+        return false
+    end
+    
+    local function findProximityPromptForAnimal(animalData)
+        if not animalData then return nil end
+        
+        local cachedPrompt = PromptMemoryCache[animalData.uid]
+        if cachedPrompt and cachedPrompt.Parent then
+            return cachedPrompt
+        end
+        
+        local plot = workspace.Plots:FindFirstChild(animalData.plot)
+        if not plot then return nil end
+        
+        local podiums = plot:FindFirstChild("AnimalPodiums")
+        if not podiums then return nil end
+        
+        local podium = podiums:FindFirstChild(animalData.slot)
+        if not podium then return nil end
+        
+        local base = podium:FindFirstChild("Base")
+        if not base then return nil end
+        
+        local spawn = base:FindFirstChild("Spawn")
+        if not spawn then return nil end
+        
+        local attach = spawn:FindFirstChild("PromptAttachment")
+        if not attach then return nil end
+        
+        for _, p in ipairs(attach:GetChildren()) do
+            if p:IsA("ProximityPrompt") then
+                PromptMemoryCache[animalData.uid] = p
+                return p
+            end
+        end
+        
+        return nil
+    end
+    
+    local function getAnimalPosition(animalData)
+        if not animalData or not animalData.plot or not animalData.slot then return nil end
+        
+        local plot = workspace.Plots:FindFirstChild(animalData.plot)
+        if not plot then return nil end
+        
+        local podiums = plot:FindFirstChild("AnimalPodiums")
+        if not podiums then return nil end
+        
+        local podium = podiums:FindFirstChild(animalData.slot)
+        if not podium then return nil end
+        
+        return podium:GetPivot().Position
+    end
+    
+    -- Get Best Gen Animal
+    local function getBestStealableAnimal()
+        for _, animal in ipairs(allAnimalsCache) do
+            if not isMyBaseAnimal(animal) then
+                return animal
+            end
+        end
+        return nil
+    end
+    
+    -- Get Nearest Animal (NEW)
+    local function getNearestAnimal()
+        local character = LocalPlayer.Character
+        if not character then return nil end
+        
+        local hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("UpperTorso")
+        if not hrp then return nil end
+        
+        local nearest = nil
+        local minDist = math.huge
+        
+        for _, animalData in ipairs(allAnimalsCache) do
+            if isMyBaseAnimal(animalData) then
+                continue
+            end
+            
+            local pos = getAnimalPosition(animalData)
+            if pos then
+                local dist = (hrp.Position - pos).Magnitude
+                
+                if dist < minDist then
+                    minDist = dist
+                    nearest = animalData
+                end
+            end
+        end
+        
+        return nearest
+    end
+    
+    -- Get Target Based on Mode (NEW)
+    local function getTargetAnimal()
+        if stealMode == "nearest" then
+            return getNearestAnimal()
+        else
+            return getBestStealableAnimal()
+        end
+    end
+    
+    local function buildStealCallbacks(prompt)
+        if InternalStealCache[prompt] then return end
+        
+        local data = {
+            holdCallbacks = {},
+            triggerCallbacks = {},
+            ready = true,
+        }
+        
+        local ok1, conns1 = pcall(getconnections, prompt.PromptButtonHoldBegan)
+        if ok1 and type(conns1) == "table" then
+            for _, conn in ipairs(conns1) do
+                if type(conn.Function) == "function" then
+                    table.insert(data.holdCallbacks, conn.Function)
+                end
+            end
+        end
+        
+        local ok2, conns2 = pcall(getconnections, prompt.Triggered)
+        if ok2 and type(conns2) == "table" then
+            for _, conn in ipairs(conns2) do
+                if type(conn.Function) == "function" then
+                    table.insert(data.triggerCallbacks, conn.Function)
+                end
+            end
+        end
+        
+        if (#data.holdCallbacks > 0) or (#data.triggerCallbacks > 0) then
+            InternalStealCache[prompt] = data
+        end
+    end
+    
+    local function executeInternalStealAsync(prompt)
+        local data = InternalStealCache[prompt]
+        if not data or not data.ready then return false end
+        
+        data.ready = false
+        
+        task.spawn(function()
+            if #data.holdCallbacks > 0 then
+                for _, fn in ipairs(data.holdCallbacks) do
+                    task.spawn(fn)
+                end
+            end
+            
+            task.wait(1.3)
+            
+            if #data.triggerCallbacks > 0 then
+                for _, fn in ipairs(data.triggerCallbacks) do
+                    task.spawn(fn)
+                end
+            end
+            
+            task.wait(0.1)
+            data.ready = true
+        end)
+        
+        return true
+    end
+    
+    local function attemptSteal(prompt)
+        if not prompt or not prompt.Parent then
+            return false
+        end
+        
+        buildStealCallbacks(prompt)
+        if not InternalStealCache[prompt] then
+            return false
+        end
+        
+        return executeInternalStealAsync(prompt)
+    end
+    
+    local function scanAllPlots()
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return {} end
+        
+        local newCache = {}
+        
+        for _, plot in ipairs(plots:GetChildren()) do
+            local channel = Synchronizer:Get(plot.Name)
+            if not channel then continue end
+            
+            local animalList = channel:Get("AnimalList")
+            if not animalList then continue end
+            
+            local owner = channel:Get("Owner")
+            if not owner then continue end
+            
+            local ownerName = "Unknown"
+            if typeof(owner) == "Instance" and owner:IsA("Player") then
+                ownerName = owner.Name
+            elseif typeof(owner) == "table" and owner.Name then
+                ownerName = owner.Name
+            end
+            
+            for slot, animalData in pairs(animalList) do
+                if type(animalData) == "table" then
+                    local animalName = animalData.Index
+                    local animalInfo = AnimalsData[animalName]
+                    if not animalInfo then continue end
+                    
+                    local genValue = AnimalsShared:GetGeneration(animalName, animalData.Mutation, animalData.Traits, nil)
+                    
+                    table.insert(newCache, {
+                        name = animalInfo.DisplayName or animalName,
+                        genValue = genValue,
+                        plot = plot.Name,
+                        slot = tostring(slot),
+                        uid = plot.Name .. "_" .. tostring(slot),
+                    })
+                end
+            end
+        end
+        
+        allAnimalsCache = newCache
+        
+        table.sort(allAnimalsCache, function(a, b)
+            return a.genValue > b.genValue
+        end)
+        
+        return #allAnimalsCache
+    end
+    
+    local function startAutoSteal()
+        if nearestStealConnection then return end
+        
+        nearestStealConnection = RunService.Heartbeat:Connect(function()
+            local targetAnimal = getTargetAnimal()
+            
+            if not targetAnimal then
+                titleLabel.Text = "WAITING FOR STEAL"
+                studLabel.Text = "0.0 studs"
+                moneyLabel.Text = "$0.0M/s"
+                return
+            end
+            
+            local character = LocalPlayer.Character
+            if not character then return end
+            
+            local hrp = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("UpperTorso")
+            if not hrp then return end
+            
+            local animalPos = getAnimalPosition(targetAnimal)
+            if not animalPos then return end
+            
+            local dist = (hrp.Position - animalPos).Magnitude
+            
+            titleLabel.Text = string.upper(targetAnimal.name)
+            studLabel.Text = string.format("%.1f studs", dist)
+            moneyLabel.Text = string.format("$%.1fM/s", targetAnimal.genValue / 1000000)
+            
+            if dist <= AUTO_STEAL_PROX_RADIUS then
+                task.spawn(animateFill)
+                
+                local prompt = PromptMemoryCache[targetAnimal.uid]
+                if not prompt or not prompt.Parent then
+                    prompt = findProximityPromptForAnimal(targetAnimal)
+                end
+                
+                if prompt then
+                    attemptSteal(prompt)
+                end
+            end
+        end)
+    end
+    
+    local function stopAutoSteal()
+        if not nearestStealConnection then return end
+        nearestStealConnection:Disconnect()
+        nearestStealConnection = nil
+    end
+    
+    task.spawn(function()
+        while task.wait(5) do
+            scanAllPlots()
+        end
+    end)
+    
+    startAutoSteal()
+    
+    nearestUI = screenGui
+end
+
+local function destroyNearestUI()
+    if nearestUI then
+        nearestUI:Destroy()
+        nearestUI = nil
+    end
+    if nearestStealConnection then
+        nearestStealConnection:Disconnect()
+        nearestStealConnection = nil
+    end
+end
+
 -- ==================== TOGGLE CREATION FUNCTIONS ====================
 -- Function to create a toggle button with the new design
 local function createToggleButton(parent, name, text, position, size)
@@ -888,6 +1432,15 @@ function Nightmare:CreateUI()
     -- Create the Anti Knockback toggle
     createIntegratedUtilityToggle("Anti Knockback", "Nightmare_Utility_AntiKnockback", function(state)
         toggleAntiRagdoll(state)
+    end)
+    
+    -- Create the Nearest toggle
+    createIntegratedUtilityToggle("Nearest", "Nightmare_Utility_Nearest", function(state)
+        if state then
+            createNearestUI()
+        else
+            destroyNearestUI()
+        end
     end)
 
     -- Create Notification Gui at the end

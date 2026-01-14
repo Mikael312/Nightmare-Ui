@@ -663,7 +663,7 @@ local function createNearestUI()
     moneyLabel.Size = UDim2.new(1, -20, 0, 15)
     moneyLabel.Position = UDim2.new(0, 10, 0, 24)
     moneyLabel.BackgroundTransparency = 1
-    moneyLabel.Text = "$0.0M/s"
+    moneyLabel.Text = "$0.0/s"
     moneyLabel.TextColor3 = Color3.fromRGB(70, 220, 90)
     moneyLabel.TextSize = 11
     moneyLabel.Font = Enum.Font.Arcade
@@ -733,6 +733,34 @@ local function createNearestUI()
     
     local isAnimating = false
     
+    -- Format Number Function
+    local function formatNumber(num)
+        local value, suffix
+        
+        if num >= 1e12 then
+            value = num / 1e12
+            suffix = "T/s"
+        elseif num >= 1e9 then
+            value = num / 1e9
+            suffix = "B/s"
+        elseif num >= 1e6 then
+            value = num / 1e6
+            suffix = "M/s"
+        elseif num >= 1e3 then
+            value = num / 1e3
+            suffix = "K/s"
+        else
+            return string.format("%.0f/s", num)
+        end
+        
+        -- Check kalau whole number
+        if value == math.floor(value) then
+            return string.format("%.0f%s", value, suffix)
+        else
+            return string.format("%.1f%s", value, suffix)
+        end
+    end
+    
     local function animateFill()
         if isAnimating then return end 
         isAnimating = true
@@ -762,11 +790,13 @@ local function createNearestUI()
         if stealMode == "bestgen" then
             stealMode = "nearest"
             modeButton.Text = "MODE: NEAREST"
+            modeButton.TextColor3 = Color3.fromRGB(180, 180, 190)
             modeButton.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
             modeStroke.Color = Color3.fromRGB(80, 80, 90)
         else
             stealMode = "bestgen"
             modeButton.Text = "MODE: BEST GEN"
+            modeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
             modeButton.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
             modeStroke.Color = Color3.fromRGB(220, 50, 50)
         end
@@ -1052,7 +1082,7 @@ local function createNearestUI()
             if not targetAnimal then
                 titleLabel.Text = "WAITING FOR STEAL"
                 studLabel.Text = "0.0 studs"
-                moneyLabel.Text = "$0.0M/s"
+                moneyLabel.Text = "$" .. formatNumber(0)
                 return
             end
             
@@ -1069,7 +1099,7 @@ local function createNearestUI()
             
             titleLabel.Text = string.upper(targetAnimal.name)
             studLabel.Text = string.format("%.1f studs", dist)
-            moneyLabel.Text = string.format("$%.1fM/s", targetAnimal.genValue / 1000000)
+            moneyLabel.Text = "$" .. formatNumber(targetAnimal.genValue)
             
             if dist <= AUTO_STEAL_PROX_RADIUS then
                 task.spawn(animateFill)

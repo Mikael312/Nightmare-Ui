@@ -108,115 +108,10 @@ local function createNotificationGui()
     NotificationGui.Parent = safeParent
 end
 
--- ==================== UTILITY SYSTEM VARIABLES ====================
-local UtilityFrame = nil
-local UtilityScrollFrame = nil
-local UtilityListLayout = nil
+-- ==================== UNLOCK NEAREST VARIABLES ====================
+local UnlockNearestUI = nil
 
--- Anti-Lag Variables
-local antiLagRunning = false
-local antiLagConnections = {}
-local cleanedCharacters = {}
-
--- Unlock Nearest Variables
-local unlockNearestUI = nil
-
--- ==================== UTILITY FUNCTIONS ====================
-local function destroyAllEquippableItems(character)
-    if not character then return end
-    if not antiLagRunning then return end
-    
-    pcall(function()
-        for _, child in ipairs(character:GetChildren()) do
-            if child:IsA("Accessory") or child:IsA("Hat") then
-                child:Destroy()
-            end
-        end
-        
-        for _, child in ipairs(character:GetChildren()) do
-            if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
-                child:Destroy()
-            end
-        end
-        
-        for _, child in ipairs(character:GetDescendants()) do
-            if child.ClassName == "LayeredClothing" or child.ClassName == "WrapLayer" then
-                child:Destroy()
-            end
-        end
-        
-        for _, child in ipairs(character:GetDescendants()) do
-            if child:IsA("Decal") or child:IsA("Texture") then
-                if not (child.Name == "face" and child.Parent and child.Parent.Name == "Head") then
-                    child:Destroy()
-                end
-            end
-        end
-    end)
-end
-
-local function antiLagCleanCharacter(char)
-    if not char then return end
-    destroyAllEquippableItems(char)
-    cleanedCharacters[char] = true
-end
-
-local function antiLagDisconnectAll()
-    for _, conn in ipairs(antiLagConnections) do
-        if typeof(conn) == "RBXScriptConnection" then
-            conn:Disconnect()
-        end
-    end
-    antiLagConnections = {}
-    cleanedCharacters = {}
-end
-
-local function enableAntiLag()
-    if antiLagRunning then 
-        return false
-    end
-    
-    antiLagRunning = true
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr.Character then
-            antiLagCleanCharacter(plr.Character)
-        end
-    end
-    
-    table.insert(antiLagConnections, Players.PlayerAdded:Connect(function(plr)
-        table.insert(antiLagConnections, plr.CharacterAdded:Connect(function(char)
-            if not antiLagRunning then return end
-            task.wait(0.5)
-            antiLagCleanCharacter(char)
-        end))
-    end))
-    
-    table.insert(antiLagConnections, task.spawn(function()
-        while antiLagRunning do
-            task.wait(3)
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr.Character and not cleanedCharacters[plr.Character] then
-                    antiLagCleanCharacter(plr.Character)
-                end
-            end
-        end
-    end))
-    
-    return true
-end
-
-local function disableAntiLag()
-    if not antiLagRunning then 
-        return false
-    end
-    
-    antiLagRunning = false
-    antiLagDisconnectAll()
-    
-    return true
-end
-
+-- ==================== UNLOCK NEAREST FUNCTIONS ====================
 -- Function to find the closest plot to the player
 local function getClosestPlot()
     local character = LocalPlayer.Character
@@ -268,13 +163,13 @@ local function smartInteract(number)
     local targetPlot = getClosestPlot()
     
     if not targetPlot then
-        Nightmare:Notify("No plot nearby!", false)
+        warn("No plot nearby!")
         return
     end
     
     local unlockFolder = targetPlot:FindFirstChild("Unlock")
     if not unlockFolder then
-        Nightmare:Notify("No unlock folder found!", false)
+        warn("No unlock folder found!")
         return
     end
     
@@ -300,7 +195,7 @@ local function smartInteract(number)
     end)
     
     if number > #unlockItems then
-        Nightmare:Notify("Floor " .. number .. " not found!", false)
+        warn("Floor " .. number .. " not found!")
         return
     end
     
@@ -310,7 +205,7 @@ local function smartInteract(number)
     findPrompts(targetFloor, prompts)
     
     if #prompts == 0 then
-        Nightmare:Notify("No prompts found on floor " .. number, false)
+        warn("No prompts found on floor " .. number)
         return
     end
     
@@ -318,13 +213,13 @@ local function smartInteract(number)
         fireproximityprompt(prompt)
     end
     
-    Nightmare:Notify("Unlocked Floor " .. number, false)
+    print("✅ Unlocked Floor " .. number)
 end
 
--- Function to create the Unlock Nearest UI
+-- Function to create the Unlock Nearest UI (PREMIUM DESIGN)
 local function createUnlockNearestUI()
-    if unlockNearestUI then
-        unlockNearestUI:Destroy()
+    if UnlockNearestUI then
+        UnlockNearestUI:Destroy()
     end
     
     local safeParent = getSafeCoreGuiParent()
@@ -335,11 +230,12 @@ local function createUnlockNearestUI()
     unlockGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     unlockGui.Parent = safeParent
     
+    -- Main Frame (Horizontal Layout) - COMPACT SIZE
     local unlockMainFrame = Instance.new("Frame")
-    unlockMainFrame.Size = UDim2.new(0, 90, 0, 200)
-    unlockMainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
-    unlockMainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    unlockMainFrame.BackgroundTransparency = 0.1
+    unlockMainFrame.Size = UDim2.new(0, 266, 0, 50)
+    unlockMainFrame.Position = UDim2.new(0.5, -133, 0.02, 0)
+    unlockMainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+    unlockMainFrame.BackgroundTransparency = 0.25
     unlockMainFrame.BorderSizePixel = 0
     unlockMainFrame.Active = true
     unlockMainFrame.Draggable = true
@@ -349,63 +245,266 @@ local function createUnlockNearestUI()
     unlockCorner.CornerRadius = UDim.new(0, 15)
     unlockCorner.Parent = unlockMainFrame
     
+    -- Animated Border (Red Gradient) - THICKNESS 1.0
     local unlockStroke = Instance.new("UIStroke")
     unlockStroke.Color = Color3.fromRGB(255, 50, 50)
-    unlockStroke.Thickness = 2
+    unlockStroke.Thickness = 1.0
+    unlockStroke.Transparency = 0
     unlockStroke.Parent = unlockMainFrame
     
-    local function createFloorButton(floorNum, yPos)
+    -- Border Animation (Bright Red to Dark Red)
+    task.spawn(function()
+        while unlockMainFrame.Parent do
+            for i = 0, 1, 0.02 do
+                if not unlockMainFrame.Parent then break end
+                local brightness = 255 - (155 * i)
+                unlockStroke.Color = Color3.fromRGB(
+                    math.floor(brightness),
+                    0,
+                    0
+                )
+                task.wait(0.05)
+            end
+            for i = 1, 0, -0.02 do
+                if not unlockMainFrame.Parent then break end
+                local brightness = 255 - (155 * i)
+                unlockStroke.Color = Color3.fromRGB(
+                    math.floor(brightness),
+                    0,
+                    0
+                )
+                task.wait(0.05)
+            end
+        end
+    end)
+    
+    -- Lock Icon Button (Left Side) - EMOJI LOCK
+    local lockButton = Instance.new("TextButton")
+    lockButton.Size = UDim2.new(0, 38, 0, 38)
+    lockButton.Position = UDim2.new(0, 6, 0.5, -19)
+    lockButton.BackgroundColor3 = Color3.fromRGB(20, 5, 5)
+    lockButton.BackgroundTransparency = 0.75
+    lockButton.BorderSizePixel = 0
+    lockButton.Text = "🔒"
+    lockButton.TextSize = 22
+    lockButton.TextColor3 = Color3.fromRGB(255, 80, 80)
+    lockButton.Font = Enum.Font.GothamBold
+    lockButton.Parent = unlockMainFrame
+    
+    local lockCorner = Instance.new("UICorner")
+    lockCorner.CornerRadius = UDim.new(0, 12)
+    lockCorner.Parent = lockButton
+    
+    local lockStroke = Instance.new("UIStroke")
+    lockStroke.Color = Color3.fromRGB(255, 50, 50)
+    lockStroke.Thickness = 1.0
+    lockStroke.Parent = lockButton
+    
+    -- Simple hover effect only (no click animation)
+    lockButton.MouseEnter:Connect(function()
+        TweenService:Create(lockButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+        }):Play()
+    end)
+    
+    lockButton.MouseLeave:Connect(function()
+        TweenService:Create(lockButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(20, 5, 5)
+        }):Play()
+    end)
+    
+    -- Function to create floor button with new design (RED THEME) - SMALLER
+    local function createFloorButton(floorNum, xPos)
+        local floorFrame = Instance.new("Frame")
+        floorFrame.Size = UDim2.new(0, 60, 0, 38)
+        floorFrame.Position = UDim2.new(0, xPos, 0.5, -19)
+        floorFrame.BackgroundColor3 = Color3.fromRGB(20, 5, 5)
+        floorFrame.BackgroundTransparency = 0.75
+        floorFrame.BorderSizePixel = 0
+        floorFrame.Parent = unlockMainFrame
+        
+        local frameCorner = Instance.new("UICorner")
+        frameCorner.CornerRadius = UDim.new(0, 12)
+        frameCorner.Parent = floorFrame
+        
+        local frameStroke = Instance.new("UIStroke")
+        frameStroke.Color = Color3.fromRGB(255, 50, 50)
+        frameStroke.Thickness = 1.0
+        frameStroke.Parent = floorFrame
+        
         local floorButton = Instance.new("TextButton")
-        floorButton.Size = UDim2.new(0, 75, 0, 50)
-        floorButton.Position = UDim2.new(0.5, -37.5, 0, yPos)
-        floorButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        floorButton.BorderSizePixel = 0
-        floorButton.Text = floorNum .. " Floor"
-        floorButton.TextColor3 = Color3.fromRGB(255, 100, 100)
-        floorButton.TextSize = 18
+        floorButton.Size = UDim2.new(1, 0, 1, 0)
+        floorButton.BackgroundTransparency = 1
+        floorButton.Text = tostring(floorNum)
+        floorButton.TextColor3 = Color3.fromRGB(255, 80, 80)
+        floorButton.TextSize = 32
         floorButton.Font = Enum.Font.Arcade
-        floorButton.Parent = unlockMainFrame
+        floorButton.Parent = floorFrame
         
-        local floorCorner = Instance.new("UICorner")
-        floorCorner.CornerRadius = UDim.new(0, 10)
-        floorCorner.Parent = floorButton
-        
+        -- Button Animation
         floorButton.MouseButton1Click:Connect(function()
-            local originalColor = floorButton.BackgroundColor3
-            floorButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            -- Flash effect
+            frameStroke.Color = Color3.fromRGB(255, 255, 255)
+            floorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
             
-            TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = originalColor
+            TweenService:Create(frameStroke, TweenInfo.new(0.3), {
+                Color = Color3.fromRGB(255, 50, 50)
+            }):Play()
+            
+            TweenService:Create(floorButton, TweenInfo.new(0.3), {
+                TextColor3 = Color3.fromRGB(255, 80, 80)
             }):Play()
             
             smartInteract(floorNum)
         end)
         
         floorButton.MouseEnter:Connect(function()
+            TweenService:Create(floorFrame, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+            }):Play()
+            
+            TweenService:Create(frameStroke, TweenInfo.new(0.2), {
+                Color = Color3.fromRGB(255, 100, 100),
+                Thickness = 1.5
+            }):Play()
+            
             TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+                TextColor3 = Color3.fromRGB(255, 150, 150),
+                TextSize = 36
             }):Play()
         end)
         
         floorButton.MouseLeave:Connect(function()
+            TweenService:Create(floorFrame, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(20, 5, 5)
+            }):Play()
+            
+            TweenService:Create(frameStroke, TweenInfo.new(0.2), {
+                Color = Color3.fromRGB(255, 50, 50),
+                Thickness = 1.0
+            }):Play()
+            
             TweenService:Create(floorButton, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                TextColor3 = Color3.fromRGB(255, 80, 80),
+                TextSize = 32
             }):Play()
         end)
     end
     
-    createFloorButton(1, 10)
-    createFloorButton(2, 70)
-    createFloorButton(3, 130)
+    -- Create floor buttons (Horizontal Layout) - CLOSER TO LOCK
+    createFloorButton(1, 48)   -- Button 1
+    createFloorButton(2, 116)  -- Button 2
+    createFloorButton(3, 184)  -- Button 3
     
-    unlockNearestUI = unlockGui
+    -- Bottom Info Bar (NEW) - FPS & PING DISPLAY
+    local infoBar = Instance.new("Frame")
+    infoBar.Size = UDim2.new(0, 180, 0, 28)
+    infoBar.Position = UDim2.new(0.5, -90, 0, 58)
+    infoBar.BackgroundColor3 = Color3.fromRGB(5, 5, 10)
+    infoBar.BackgroundTransparency = 0.15
+    infoBar.BorderSizePixel = 0
+    infoBar.Parent = unlockMainFrame  -- Parent to main frame so it drags together!
+    
+    local infoCorner = Instance.new("UICorner")
+    infoCorner.CornerRadius = UDim.new(0, 8)
+    infoCorner.Parent = infoBar
+    
+    local infoStroke = Instance.new("UIStroke")
+    infoStroke.Color = Color3.fromRGB(100, 0, 0)
+    infoStroke.Thickness = 1.0
+    infoStroke.Parent = infoBar
+    
+    -- Avatar Image (Left Side)
+    local avatarImage = Instance.new("ImageLabel")
+    avatarImage.Size = UDim2.new(0, 22, 0, 22)
+    avatarImage.Position = UDim2.new(0, 3, 0.5, -11)
+    avatarImage.BackgroundTransparency = 1
+    avatarImage.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    avatarImage.Parent = infoBar
+    
+    local avatarCorner = Instance.new("UICorner")
+    avatarCorner.CornerRadius = UDim.new(1, 0)
+    avatarCorner.Parent = avatarImage
+    
+    -- FPS Label
+    local fpsLabel = Instance.new("TextLabel")
+    fpsLabel.Size = UDim2.new(0, 70, 1, 0)
+    fpsLabel.Position = UDim2.new(0, 30, 0, 0)
+    fpsLabel.BackgroundTransparency = 1
+    fpsLabel.Text = "FPS: 60"
+    fpsLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    fpsLabel.TextSize = 11
+    fpsLabel.Font = Enum.Font.GothamBold
+    fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    fpsLabel.Parent = infoBar
+    
+    -- Ping Label
+    local pingLabel = Instance.new("TextLabel")
+    pingLabel.Size = UDim2.new(0, 80, 1, 0)
+    pingLabel.Position = UDim2.new(0, 100, 0, 0)
+    pingLabel.BackgroundTransparency = 1
+    pingLabel.Text = "Ping: 0ms"
+    pingLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    pingLabel.TextSize = 11
+    pingLabel.Font = Enum.Font.GothamBold
+    pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    pingLabel.Parent = infoBar
+    
+    -- FPS & Ping Update Loop
+    local frameCount = 0
+    local lastFPSUpdate = tick()
+    local currentFPS = 60
+    
+    -- FPS Counter (accurate method)
+    RunService.RenderStepped:Connect(function()
+        frameCount = frameCount + 1
+        local now = tick()
+        
+        if now - lastFPSUpdate >= 1 then
+            currentFPS = frameCount
+            frameCount = 0
+            lastFPSUpdate = now
+            
+            fpsLabel.Text = "FPS: " .. tostring(currentFPS)
+            
+            -- Color based on performance
+            if currentFPS >= 55 then
+                fpsLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            elseif currentFPS >= 30 then
+                fpsLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+            else
+                fpsLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            end
+        end
+    end)
+    
+    -- Ping Update Loop
+    task.spawn(function()
+        while infoBar.Parent do
+            -- Get Ping
+            local ping = math.floor(LocalPlayer:GetNetworkPing() * 1000)
+            pingLabel.Text = "Ping: " .. tostring(ping) .. "ms"
+            
+            if ping <= 100 then
+                pingLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            elseif ping <= 200 then
+                pingLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+            else
+                pingLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            end
+            
+            task.wait(1)
+        end
+    end)
+    
+    UnlockNearestUI = unlockGui
 end
 
 -- Function to destroy the Unlock Nearest UI
 local function destroyUnlockNearestUI()
-    if unlockNearestUI then
-        unlockNearestUI:Destroy()
-        unlockNearestUI = nil
+    if UnlockNearestUI then
+        UnlockNearestUI:Destroy()
+        UnlockNearestUI = nil
     end
 end
 
@@ -706,15 +805,6 @@ function Nightmare:CreateUI()
         end)
     end
 
-    -- Create the utility toggle here
-    createIntegratedUtilityToggle("Hide Skin", "Nightmare_Utility_HideSkin", function(state)
-        if state then
-            enableAntiLag()
-        else
-            disableAntiLag()
-        end
-    end)
-    
     -- Create the Unlock Nearest toggle
     createIntegratedUtilityToggle("Unlock Nearest", "Nightmare_Utility_UnlockNearest", function(state)
         if state then
